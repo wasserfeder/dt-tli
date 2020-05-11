@@ -61,7 +61,7 @@ class DTree(object):
     """
 
     def __init__(self, primitive, traces, robustness=None,
-                 left=None, right=None):
+                 left=None, right=None, parent=None):
         """
         primitive : a LLTFormula object
                     The node's primitive
@@ -78,6 +78,7 @@ class DTree(object):
         self._robustness = robustness
         self._left = left
         self._right = right
+        self._parent = parent
 
     def classify(self, signal):
         """
@@ -134,6 +135,14 @@ class DTree(object):
         self._right = value
 
     @property
+    def parent(self):
+        return self._parent
+
+    @parent.setter
+    def parent(self, value):
+        self.parent = value
+
+    @property
     def primitive(self):
         return self._primitive
 
@@ -179,7 +188,7 @@ def lltinf(traces, depth=1,
                      construction of the decision tree (see arguments of
                      lltinf_).
     disp : a boolean
-           Switches displaying of debuggin output
+           Switches displaying of debugging output
 
     Returns a DTree object.
 
@@ -190,9 +199,12 @@ def lltinf(traces, depth=1,
     if stop_condition is None:
         stop_condition = [perfect_stop]
 
-    return lltinf_(traces, None, depth, optimize_impurity, stop_condition, disp)
+    print '['
+    tree =  lltinf_(traces, None, depth, optimize_impurity, stop_condition, None, None, disp)
+    print ']'
+    return tree
 
-def lltinf_(traces, rho, depth, optimize_impurity, stop_condition, disp=False):
+def lltinf_(traces, rho, depth, optimize_impurity, stop_condition, parent, lr=None, disp=False):
     """
     Recursive call for the decision tree construction.
 
@@ -211,12 +223,13 @@ def lltinf_(traces, rho, depth, optimize_impurity, stop_condition, disp=False):
     # Find primitive using impurity measure
     primitives = make_llt_primitives(traces.signals)
     primitive, impurity = _find_best_primitive(traces, primitives, rho,
-                                              optimize_impurity, disp)
+                                               optimize_impurity, disp=False)
     if disp:
-        print primitive
+        print '{'
+        print '"primitive": "{}"'.format(primitive)
 
     # Classify using best primitive and split into groups
-    tree = DTree(primitive, traces)
+    tree = DTree(primitive, traces, parent=parent)
     prim_rho = [robustness(primitive, SimpleModel(s)) for s in traces.signals]
     if rho is None:
         rho = [np.inf for i in traces.labels]
@@ -231,6 +244,19 @@ def lltinf_(traces, rho, depth, optimize_impurity, stop_condition, disp=False):
         sat_, unsat_ = unsat_, sat_
         tree.primitive = Formula(NOT, [tree.primitive])
 
+    if parent is not None:
+        assert lr is not None
+        if lr == 'left':
+            parent.left = tree
+        else: #if lr == 'right':
+            parent.right = tree
+    if disp:
+        root = tree
+        while root.parent is not None:
+            root = root.parent
+        print '"Tree formula": "{}"'.format(root.get_formula())
+        print '},'
+
     # No further classification possible
     if len(sat_) == 0 or len(unsat_) == 0:
         return None
@@ -242,9 +268,9 @@ def lltinf_(traces, rho, depth, optimize_impurity, stop_condition, disp=False):
 
     # Recursively build the tree
     tree.left = lltinf_(sat[0], sat[1], depth - 1,
-                        optimize_impurity, stop_condition)
+                        optimize_impurity, stop_condition, tree, 'left', disp)
     tree.right = lltinf_(unsat[0], unsat[1], depth - 1,
-                         optimize_impurity, stop_condition)
+                         optimize_impurity, stop_condition, tree, 'right', disp)
 
     return tree
 

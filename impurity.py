@@ -40,7 +40,7 @@ def _transform_pars(theta, maxt):
     t1 = t0 + (maxt - t0) * t1 / maxt
     t3 = (maxt - t1) * t3 / maxt
 
-    return [t0, t1, t3, pi]
+    return (t0, t1, t3, pi)
 
 def inf_gain(theta, *args):
     """
@@ -68,17 +68,25 @@ def inf_gain(theta, *args):
 
     set_llt_pars(primitive, theta[0], theta[1], theta[2], theta[3])
 
-    lrho = [[robustness(primitive, model) for model in models]]
+    lrho = [robustness(primitive, model) for model in models]
+#     lrho_ = [lrho]
     if prev_rho is not None:
-        lrho.append(prev_rho)
-    rho_labels = zip(np.amin(lrho, 0), traces.labels)
+#         lrho_.append(prev_rho)
+        lrho = np.minimum(lrho, prev_rho)
+#     assert all(np.isclose(lrho, np.amin(lrho_, 0), rtol=0))
+#     rho_labels = zip(np.amin(lrho, 0), traces.labels)
+    rho_labels = zip(lrho, traces.labels)
     sat, unsat = split_groups(rho_labels, lambda x: x[0]>= 0)
 
     # compute IG
     # Sum of absolute value of the robustness for all traces
-    stotal = sum(np.abs(zip(*rho_labels)[0]))
-    ig = _entropy(rho_labels) - _inweights(sat, stotal) * _entropy(sat) - \
-        _inweights(unsat, stotal) * _entropy(unsat)
+#     stotal = sum(np.abs(zip(*rho_labels)[0]))
+    stotal = sum(np.abs(lrho))
+    w_sat = _inweights(sat, stotal)
+    w_unsat = 1 - w_sat
+#     w_unsat_ = _inweights(unsat, stotal)
+#     assert np.isclose(w_unsat, w_unsat_, rtol=0)
+    ig = _entropy(rho_labels) - w_sat * _entropy(sat) - w_unsat * _entropy(unsat)
 
     return -ig
 
@@ -95,10 +103,12 @@ def _entropy(part):
     # Revert to counting when all rho = 0
     if spart == 0:
         w_p = len([p for p in part if p[1] >= 0]) / float(len(part))
-        w_n = len([p for p in part if p[1] < 0]) / float(len(part))
+#         w_n_ = len([p for p in part if p[1] < 0]) / float(len(part))
     else:
         w_p = sum([abs(p[0]) for p in part if p[1] >= 0]) / spart
-        w_n = sum([abs(p[0]) for p in part if p[1] < 0]) / spart
+#         w_n_ = sum([abs(p[0]) for p in part if p[1] < 0]) / spart
+    w_n = 1 - w_p
+#     assert np.isclose(w_n, w_n_, rtol=0)
 
     if w_p <= 0 or w_n <= 0:
         return 0
