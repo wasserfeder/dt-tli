@@ -68,16 +68,13 @@ def optimize_inf_gain(traces, primitive, prim_level, prev_rho, pdist, disp = Fal
     # equation (30)
     m.addConstr(x1 <= Rp)
     m.addConstr(x1 <= Rn)
-    m.addQConstr(x1 == z1 * Rp)
-    m.addQConstr(x1 == (1 - z1) * Rn)
+    m.addQConstr(x1 == z1 * Rp + (1 - z1) * Rn)
     m.addConstr(x2 <= Rtp)
     m.addConstr(x2 <= Rtn)
-    m.addQConstr(x2 == z2 * Rtp)
-    m.addQConstr(x2 == (1 - z2) * Rtn)
+    m.addQConstr(x2 == z2 * Rtp + (1 - z2) * Rtn)
     m.addConstr(x3 <= (Rp - Rtp))
     m.addConstr(x3 <= (Rn - Rtn))
-    m.addQConstr(x3 == z3 * (Rp - Rtp))
-    m.addQConstr(x3 == (1 - z3) * (Rn - Rtn))
+    m.addQConstr(x3 == z3 * (Rp - Rtp) + (1 - z3) * (Rn - Rtn))
     m.addConstr(x4 == Rp + Rn)
 
     # equation (33)
@@ -86,12 +83,10 @@ def optimize_inf_gain(traces, primitive, prim_level, prev_rho, pdist, disp = Fal
     for i in traces.pos_indices():
         m.addConstr(r_pn[i] <= prev_rho[i])
         m.addConstr(r_pn[i] <= r_prim[i])
-        m.addQConstr(r_pn[i] == z_pn[i] * prev_rho[i])
-        m.addQConstr(r_pn[i] == (1 - z_pn[i]) * r_prim[i])
+        m.addQConstr(r_pn[i] == z_pn[i] * prev_rho[i] + (1 - z_pn[i]) * r_prim[i])
         m.addConstr(ar_pn[i] >= r_pn[i])
         m.addConstr(ar_pn[i] <= -r_pn[i])
-        m.addQConstr(ar_pn[i] == z_pn_ar[i] * r_pn[i])
-        m.addQConstr(ar_pn[i] == (1 - z_pn_ar[i]) * -r_pn[i])
+        m.addQConstr(ar_pn[i] == (2 * z_pn_ar[i] - 1) * r_pn[i])
 
     # equation (37)
     m.addConstr(Rn == sum(pdist[i] * ar_pn[i] for i in traces.neg_indices()))
@@ -99,12 +94,10 @@ def optimize_inf_gain(traces, primitive, prim_level, prev_rho, pdist, disp = Fal
     for i in traces.neg_indices():
         m.addConstr(r_pn[i] <= prev_rho[i])
         m.addConstr(r_pn[i] <= r_prim[i])
-        m.addQConstr(r_pn[i] == z_pn[i] * prev_rho[i])
-        m.addQConstr(r_pn[i] == (1 - z_pn[i]) * r_prim[i])
+        m.addQConstr(r_pn[i] == z_pn[i] * prev_rho[i] + (1 - z_pn[i]) * r_prim[i])
         m.addConstr(ar_pn[i] >= r_pn[i])
         m.addConstr(ar_pn[i] <= -r_pn[i])
-        m.addQConstr(ar_pn[i] == z_pn_ar[i] * r_pn[i])
-        m.addQConstr(ar_pn[i] == (1 - z_pn_ar[i]) * -r_pn[i])
+        m.addQConstr(ar_pn[i] == (2 * z_pn_ar[i] - 1) * r_pn[i])
 
     # equation (42)
     m.addConstr(Rtp == sum(pdist[i] * ar_tpn[i] for i in traces.pos_indices()))
@@ -112,32 +105,26 @@ def optimize_inf_gain(traces, primitive, prim_level, prev_rho, pdist, disp = Fal
     for i in traces.pos_indices():
         m.addConstr(r_tpn_max[i] >= r_prim[i])
         m.addConstr(r_tpn_max[i] >= epsilon)
-        m.addQConstr(r_tpn_max[i] == z_tpn_max[i] * r_prim[i])
-        m.addQConstr(r_tpn_max[i] == (1 - z_tpn_max[i]) * epsilon)
+        m.addQConstr(r_tpn_max[i] == z_tpn_max[i] * r_prim[i] + (1 - z_tpn_max[i]) * epsilon)
         m.addConstr(r_tpn[i] <= prev_rho[i])
         m.addConstr(r_tpn[i] <= r_tpn_max[i])
-        m.addQConstr(r_tpn[i] == z_tpn[i] * prev_rho[i])
-        m.addQConstr(r_tpn[i] == (1 - z_tpn[i]) * r_tpn_max[i])
+        m.addQConstr(r_tpn[i] == z_tpn[i] * prev_rho[i] + (1 - z_tpn[i]) * r_tpn_max[i])
         m.addConstr(ar_tpn[i] >= r_tpn[i])
         m.addConstr(ar_tpn[i] >= -r_tpn[i])
-        m.addQConstr(ar_tpn[i] == z_tpn_ar[i] * r_tpn[i])
-        m.addQConstr(ar_tpn[i] == (1 - z_tpn_ar[i]) * -r_tpn[i])
+        m.addQConstr(ar_tpn[i] == (2 * z_tpn_ar[i] - 1) * r_tpn[i])
 
     # Same equations of (42)-(43) for Rtn
     m.addConstr(Rtn == sum(pdist[i] * ar_tpn[i] for i in traces.neg_indices()))
     for i in traces.neg_indices():
         m.addConstr(r_tpn_max[i] >= r_prim[i])
         m.addConstr(r_tpn_max[i] >= epsilon)
-        m.addQConstr(r_tpn_max[i] == z_tpn_max[i] * r_prim[i])
-        m.addQConstr(r_tpn_max[i] == (1 - z_tpn_max[i]) * epsilon)
+        m.addQConstr(r_tpn_max[i] == z_tpn_max[i] * r_prim[i] + (1 - z_tpn_max[i]) * epsilon)
         m.addConstr(r_tpn[i] <= prev_rho[i])
         m.addConstr(r_tpn[i] <= r_tpn_max[i])
-        m.addQConstr(r_tpn[i] == z_tpn[i] * prev_rho[i])
-        m.addQConstr(r_tpn[i] == (1 - z_tpn[i]) * r_tpn_max[i])
+        m.addQConstr(r_tpn[i] == z_tpn[i] * prev_rho[i] + (1 - z_tpn[i]) * r_tpn_max[i])
         m.addConstr(ar_tpn[i] >= r_tpn[i])
         m.addConstr(ar_tpn[i] >= -r_tpn[i])
-        m.addQConstr(ar_tpn[i] == z_tpn_ar[i] * r_tpn[i])
-        m.addQConstr(ar_tpn[i] == (1 - z_tpn_ar[i]) * -r_tpn[i])
+        m.addQConstr(ar_tpn[i] == (2 * z_tpn_ar[i] - 1) * r_tpn[i])
 
     # Adding the constraints for the primitive's robustness
     # m = prim_rho(m, traces, primitive, prim_level)
@@ -158,9 +145,9 @@ def optimize_inf_gain(traces, primitive, prim_level, prev_rho, pdist, disp = Fal
 
         for i in range(traces.m):
             m.addConstr(sum(z_prim_max[i][t] for t in range(T)) == 1)
-
+            m.addQConstr(r_prim[i] == sum(z_prim[i][t] * r_prim_max[i][t] for t in range(T)))
             for t in range(T):
-                m.addQConstr(r_prim[i] == z_prim[i][t] * r_prim_max[i][t])
+                # m.addQConstr(r_prim[i] == z_prim[i][t] * r_prim_max[i][t])
                 # always operator
                 if expr == 5:
                     m.addConstr(r_prim[i] <= r_prim_max[i][t])
@@ -169,13 +156,12 @@ def optimize_inf_gain(traces, primitive, prim_level, prev_rho, pdist, disp = Fal
                     m.addConstr(r_prim[i] >= r_prim_max[i][t])
 
                 m.addConstr(r_prim_max[i][t] >= M * (1 - 2 * id_t[t]))
-                m.addQConstr(r_prim_max[i][t] == (1 - z_prim_max[i][t]) * M * (1 - 2 * id_t[t]))
                 if op == LE:
                     m.addConstr(r_prim_max[i][t] >= pi - traces.signals[i][index][t])
-                    m.addQConstr(r_prim_max[i][t] == z_prim_max[i][t] * (pi - traces.signals[i][index][t]))
+                    m.addQConstr(r_prim_max[i][t] == z_prim_max[i][t] * (pi - traces.signals[i][index][t]) + (1 - z_prim_max[i][t]) * M * (1 - 2 * id_t[t]))
                 else:
                     m.addConstr(r_prim_max[i][t] >= traces.signals[i][index][t] - pi)
-                    m.addQConstr(r_prim_max[i][t] == z_prim_max[i][t] * (traces.signals[i][index][t] - pi))
+                    m.addQConstr(r_prim_max[i][t] == z_prim_max[i][t] * (traces.signals[i][index][t] - pi) + (1 - z_prim_max[i][t]) * M * (1 - 2 * id_t[t]))
 
         for t in range(T):
             m.addConstr(id_t[t] <= id_t_inc[t])
