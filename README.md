@@ -55,6 +55,6 @@ Can be omitted when used for classification.
 
 Examples
 --------------------
-    $ python main.py -d 2 -n 2 -i 0 lean data/SimpleDS2/simpleDS2.mat
+    $ python main.py -d 2 -n 2 -i 0 learn data/SimpleDS2/simpleDS2.mat
 
 
