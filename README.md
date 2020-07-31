@@ -1,7 +1,7 @@
 lltinf - Signal temporal logic data classification
 ====================
 
-usage: python2 lltinf_cmd.py [-h] [-d D] [-v] [--out-perm f] [-c f] [-o f]
+usage: python lltinf_cmd.py [-h] [-d D] [-v] [--out-perm f] [-c f] [-o f]
                              [{learn,cv,classify}] file
 
 **Positional arguments:**
