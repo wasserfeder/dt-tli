@@ -1,20 +1,17 @@
 lltinf - Signal temporal logic data classification
 ====================
 
-usage: python lltinf_cmd.py [-h] [-d D] [-v] [--out-perm f] [-c f] [-o f]
-                             [{learn,cv,classify}] file
+usage: python main.py [-d D] [-n N] [-i I]
+                             [{learn}] file
 
 **Positional arguments:**
 
-*{learn,cv,classify}*
+*{learn}*
 
 Action to take: 
 
 * 'learn': builds a classifier for the given training set. The resulting stl formula will be printed. 
 
-* 'cv': performs a cross validation test using the given training set. 
-
-* 'classify': classifies a data set using the given classifier (-c must be specified) (default: cv)
 
 *file*
 
@@ -22,23 +19,14 @@ Action to take:
 
 **Optional arguments:**
 
-* -h, --help:
-show this help message and exit
-
 *  -d D, --depth D:
-maximum depth of the decision tree (default: 3)
+maximum depth of the shallow decision trees (default: 3)
 
-*  -v, --verbose:
-display more info (default: False)
+*  -n N, --numtree N:
+number of shallow decision trees for the boosted algorithm
 
-*  --out-perm f:
-if specified, saves the cross validation permutation into f (default: None)
-
-*  -c f, --classifier f:
-file containing the classifier (default: None)
-
-*  -o f, --out f:
-results from the classification will be stored in MAT format in this file (default: None)
+*  -i I, --inc I:
+Boolean variable for having incremental or non-incremental learning (0: non-inc, 1: inc)
 
 Data set format
 --------------------
@@ -67,11 +55,6 @@ Can be omitted when used for classification.
 
 Examples
 --------------------
+    $ python main.py -d 2 -n 2 -i 0 lean data/SimpleDS2/simpleDS2.mat
 
-Perform a 10 fold cross-validation test on the Naval data set, limiting the depth of the classiffier to 3 and saving the permutation used:
 
-    $ python2 lltinf_cmd.py -d 3 --out-perm perm.p cv data/Naval/naval_preproc_data_online.mat
-
-Perform a 10 fold cross-validation test on the FuelControl data set, limiting the depth of the classiffier to 3 and saving the permutation used:
-
-    $ python2 lltinf_cmd.py -d 3 --out-perm perm.p cv data/FuelControl/FCdata.mat
