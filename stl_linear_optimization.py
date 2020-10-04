@@ -1,4 +1,4 @@
-
+  
 ## Imports
 import numpy as np
 import gurobipy as grb
@@ -27,7 +27,8 @@ class Optimize_Misclass_Gain(object):
         if self.prev_rho is None:
             self.prev_rho   = [10000 for i in self.labels]
         self.model          = grb.Model()
-        # self.model.setParam('OutputFlag', False)
+        self.model.setParam('OutputFlag', False)
+        self.model.setParam('CUTOFF', 5)
         self.formulate_optimization()
 
 
@@ -45,13 +46,18 @@ class Optimize_Misclass_Gain(object):
     def add_variables(self):
         self.u = self.model.addVar(name='u',lb=-GRB.INFINITY, ub=GRB.INFINITY,
                                                         vtype=GRB.CONTINUOUS)
+        self.u_epsilon = self.model.addVar(name='u_epsilon',lb=-GRB.INFINITY, ub=GRB.INFINITY,
+                                                        vtype=GRB.CONTINUOUS)
         self.v1 = self.model.addVar(name='v1',lb=-GRB.INFINITY, ub=GRB.INFINITY,
                                                         vtype=GRB.CONTINUOUS)
         self.v2 = self.model.addVar(name='v2',lb=-GRB.INFINITY, ub=GRB.INFINITY,
                                                         vtype=GRB.CONTINUOUS)
         self.v3 = self.model.addVar(name='v3',lb=-GRB.INFINITY, ub=GRB.INFINITY,
                                                         vtype=GRB.CONTINUOUS)
-        self.z3 = self.model.addVar(vtype=GRB.BINARY)
+        self.v3_temp1 = self.model.addVar(name='vtemp1',lb=-GRB.INFINITY, ub=GRB.INFINITY,
+                                                        vtype=GRB.CONTINUOUS) # NEW
+        self.v3_temp2 = self.model.addVar(name='vtemp2',lb=-GRB.INFINITY, ub=GRB.INFINITY,
+                                                        vtype=GRB.CONTINUOUS) # NEW       
         self.vr_p = self.model.addVar(name='vr_p',lb=-GRB.INFINITY,
                                         ub=GRB.INFINITY, vtype=GRB.CONTINUOUS)
         self.vr_n = self.model.addVar(name='vr_n',lb=-GRB.INFINITY,
@@ -60,27 +66,34 @@ class Optimize_Misclass_Gain(object):
                                         ub=GRB.INFINITY, vtype=GRB.CONTINUOUS)
         self.vr_tn = self.model.addVar(name='vr_tn',lb=-GRB.INFINITY,
                                         ub=GRB.INFINITY, vtype=GRB.CONTINUOUS)
-
         self.vr_prim = [self.model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY,
                             vtype=GRB.CONTINUOUS) for t in range(self.N)]
+        
         self.vr_pn = [self.model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY,
                             vtype=GRB.CONTINUOUS) for t in range(self.N)]
-        self.abs_vr_pn = [self.model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY,
-                            vtype=GRB.CONTINUOUS) for t in range(self.N)]
+        self.vr_pn_temp = [self.model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY,
+                            vtype=GRB.CONTINUOUS) for t in range(self.N)]    # NEW
+        self.vr_pn_temp_abs = [self.model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY,
+                            vtype=GRB.CONTINUOUS) for t in range(self.N)]    # NEW               
         self.vr_tpn = [self.model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY,
                             vtype=GRB.CONTINUOUS) for t in range(self.N)]
+        self.vr_tpn_temp = [self.model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY,
+                            vtype=GRB.CONTINUOUS) for t in range(self.N)]    # NEW
+        self.vr_tpn_temp_abs = [self.model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY,
+                            vtype=GRB.CONTINUOUS) for t in range(self.N)]    # NEW    
         self.vr_max = [self.model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY,
                             vtype=GRB.CONTINUOUS) for t in range(self.N)]
+        self.u_prev_rho = [self.model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY,
+                            vtype=GRB.CONTINUOUS) for t in range(self.N)]
         self.model.update()
-
+        
 
     def add_init_constraints(self):
         self.model.addConstr(self.v1 == grb.min_(self.vr_p, self.vr_n))
         self.model.addConstr(self.v2 == grb.min_(self.vr_tp, self.vr_tn))
-        self.model.addConstr(self.v3 <= self.vr_p - self.vr_tp)
-        self.model.addConstr(self.v3 <= self.vr_n - self.vr_tn)
-        self.model.addConstr(self.v3 == self.z3 * (self.vr_p - self.vr_tp))
-        self.model.addConstr(self.v3 == (1 - self.z3) * (self.vr_n - self.vr_tn))
+        self.model.addConstr(self.v3_temp1 == self.vr_p - self.vr_tp) # NEW
+        self.model.addConstr(self.v3_temp2 == self.vr_n - self.vr_tn) # NEW
+        self.model.addConstr(self.v3 == grb.min_(self.v3_temp1, self.v3_temp2)) # NEW
         # self.model.addConstr(self.v3 == grb.min_(self.vr_p - self.vr_tp,
         #                                             self.vr_n - self.vr_tn))
         self.model.addConstr(self.vr_p + self.vr_n == 1)
@@ -92,49 +105,71 @@ class Optimize_Misclass_Gain(object):
         self.model.addConstr(self.vr_n >= 0)
         self.model.addConstr(self.vr_tp >= 0)
         self.model.addConstr(self.vr_tn >= 0)
+        self.model.addConstr(self.u_epsilon == self.u * self.epsilon) # NEW
         self.model.update()
 
 
     def add_pos_class_constraints(self):
-        for i in self.pos_indices:
-            self.abs_vr_pn[i] = grb.abs_(self.vr_pn[i])
-        self.model.addConstr(self.vr_p == sum(self.pdist[i] *
-                            self.abs_vr_pn[i] for i in self.pos_indices))
         # self.model.addConstr(self.vr_p == sum(self.pdist[i] * grb.abs_(self.vr_pn[i]) for i in self.pos_indices))
+        self.model.addConstr(self.vr_p == sum(self.vr_pn_temp_abs[i] for i in self.pos_indices)) # NEW
         for i in self.pos_indices:
+            self.model.addConstr(self.vr_pn_temp[i] == self.pdist[i] * self.vr_pn[i]) # NEW
+            self.model.addConstr(self.vr_pn_temp_abs[i] == grb.abs_(self.vr_pn_temp[i])) # NEW
+            self.model.addConstr(self.u_prev_rho[i] == self.u * self.prev_rho[i]) # NEW
+            # self.model.addConstr(self.vr_pn[i] ==
+            #             grb.min_(self.u * self.prev_rho[i], self.vr_prim[i]))
             self.model.addConstr(self.vr_pn[i] ==
-                        grb.min_(self.u * self.prev_rho[i], self.vr_prim[i]))
-        self.mode7l.update()
+                        grb.min_(self.u_prev_rho[i], self.vr_prim[i])) # NEW
+        self.model.update()
 
 
     def add_neg_class_constraints(self):
-        self.model.addConstr(self.vr_n == sum(self.pdist[i] *
-                            grb.abs_(self.vr_pn[i]) for i in self.neg_indices))
+        # self.model.addConstr(self.vr_n == sum(self.pdist[i] * grb.abs_(self.vr_pn[i]) for i in self.neg_indices))
+        self.model.addConstr(self.vr_n == sum(self.vr_pn_temp_abs[i] for i in self.neg_indices)) # NEW
         for i in self.neg_indices:
+            self.model.addConstr(self.vr_pn_temp[i] == self.pdist[i] * self.vr_pn[i]) # NEW
+            self.model.addConstr(self.vr_pn_temp_abs[i] == grb.abs_(self.vr_pn_temp[i])) # NEW
+            self.model.addConstr(self.u_prev_rho[i] == self.u * self.prev_rho[i]) # NEW
+            # self.model.addConstr(self.vr_pn[i] ==
+            #             grb.min_(self.u * self.prev_rho[i], self.vr_prim[i]))
             self.model.addConstr(self.vr_pn[i] ==
-                        grb.min_(self.u * self.prev_rho[i], self.vr_prim[i]))
+                        grb.min_(self.u_prev_rho[i], self.vr_prim[i])) # NEW
         self.model.update()
         
 
     def add_true_pos_constraints(self):
-        self.model.addConstr(self.vr_tp == sum(self.pdist[i] *
-                            grb.abs_(self.vr_tpn[i]) for i in self.pos_indices))
+        # self.model.addConstr(self.vr_tp == sum(self.pdist[i] *
+        #                     grb.abs_(self.vr_tpn[i]) for i in self.pos_indices))
+        self.model.addConstr(self.vr_tp == sum(self.vr_tpn_temp_abs[i] for i in self.pos_indices)) # NEW
         for i in self.pos_indices:
+            self.model.addConstr(self.vr_tpn_temp[i] == self.pdist[i] * self.vr_tpn[i]) # NEW
+            self.model.addConstr(self.vr_tpn_temp_abs[i] == grb.abs_(self.vr_tpn_temp[i])) # NEW
+            # self.model.addConstr(self.vr_tpn[i] ==
+            #                 grb.min_(self.u * self.prev_rho[i], self.vr_max[i]))
             self.model.addConstr(self.vr_tpn[i] ==
-                            grb.min_(self.u * self.prev_rho[i], self.vr_max[i]))
+                            grb.min_(self.u_prev_rho[i], self.vr_max[i])) # NEW
+            # self.model.addConstr(self.vr_max[i] ==
+            #                 grb.max_(self.vr_prim[i], self.u * self.epsilon))
             self.model.addConstr(self.vr_max[i] ==
-                            grb.max_(self.vr_prim[i], self.u * self.epsilon))
+                            grb.max_(self.vr_prim[i], self.u_epsilon)) # NEW
         self.model.update()
 
 
     def add_true_neg_constraints(self):
-        self.model.addConstr(self.vr_tn == sum(self.pdist[i] *
-                            grb.abs_(self.vr_tpn[i]) for i in self.neg_indices))
+        # self.model.addConstr(self.vr_tn == sum(self.pdist[i] *
+        #                     grb.abs_(self.vr_tpn[i]) for i in self.neg_indices))
+        self.model.addConstr(self.vr_tn == sum(self.vr_tpn_temp_abs[i] for i in self.neg_indices)) # NEW
         for i in self.neg_indices:
+            self.model.addConstr(self.vr_tpn_temp[i] == self.pdist[i] * self.vr_tpn[i]) # NEW
+            self.model.addConstr(self.vr_tpn_temp_abs[i] == grb.abs_(self.vr_tpn_temp[i])) # NEW
+            # self.model.addConstr(self.vr_tpn[i] ==
+            #                 grb.min_(self.u * self.prev_rho[i], self.vr_max[i]))
             self.model.addConstr(self.vr_tpn[i] ==
-                            grb.min_(self.u * self.prev_rho[i], self.vr_max[i]))
+                            grb.min_(self.u_prev_rho[i], self.vr_max[i])) # NEW
+            # self.model.addConstr(self.vr_max[i] ==
+            #                 grb.max_(self.vr_prim[i], self.u * self.epsilon))
             self.model.addConstr(self.vr_max[i] ==
-                            grb.max_(self.vr_prim[i], self.u * self.epsilon))
+                            grb.max_(self.vr_prim[i], self.u_epsilon)) # NEW
         self.model.update()
 
 
@@ -158,10 +193,14 @@ class Optimize_Misclass_Gain(object):
             #     self.add_second_eventually_constraints()
 
     def add_first_level_variables(self):
-        self.vpi = self.model.addVar(name='u',lb=-GRB.INFINITY, ub=GRB.INFINITY,
+        self.vpi = self.model.addVar(name='vpi',lb=-GRB.INFINITY, ub=GRB.INFINITY,
                                                         vtype=GRB.CONTINUOUS)
         self.vr_prim_max = [[self.model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY,
-                            vtype=GRB.CONTINUOUS) for t in range(self.N)] for j in range(self.T)]
+                            vtype=GRB.CONTINUOUS) for t in range(self.T)] for j in range(self.N)]
+        self.vr_prim_max_temp1 = [[self.model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY,
+                            vtype=GRB.CONTINUOUS) for t in range(self.T)] for j in range(self.N)] # NEW
+        self.vr_prim_max_temp2 = [[self.model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY,
+                            vtype=GRB.CONTINUOUS) for t in range(self.T)] for j in range(self.N)] # NEW
         self.ind = [self.model.addVar(vtype=GRB.BINARY) for j in range(self.T)]
         self.ind_inc = [self.model.addVar(vtype=GRB.BINARY) for j in range(self.T)]
         self.ind_dec = [self.model.addVar(vtype=GRB.BINARY) for j in range(self.T)]
@@ -173,6 +212,7 @@ class Optimize_Misclass_Gain(object):
                             vtype=GRB.CONTINUOUS) for j in range(self.T)]
         self.model.update()
 
+
     def add_first_level_constraints(self):
         expr    = self.primitive._op   
         index   = self.primitive.index                  # index of the signal
@@ -180,14 +220,21 @@ class Optimize_Misclass_Gain(object):
         for i in range(self.N):
             if expr == 5:   # always operator
                 self.model.addConstr(self.vr_prim[i] == grb.min_(self.vr_prim_max[i]))
+                
             else:           # eventually operator
                 self.model.addConstr(self.vr_prim[i] == grb.max_(self.vr_prim_max[i]))
-
+                
             for t in range(self.T):
                 if op == LE:
-                    self.model.addConstr(self.vr_prim_max[i][t] == grb.max_(self.vpi - self.u * self.traces[i][index][t], self.M * (self.u - 2 * self.zind[t])))
+                    # self.model.addConstr(self.vr_prim_max[i][t] == grb.max_(self.vpi - self.u * self.traces[i][index][t], self.M * (self.u - 2 * self.zind[t])))
+                    self.model.addConstr(self.vr_prim_max[i][t] == grb.max_(self.vr_prim_max_temp1[i][t], self.vr_prim_max_temp2[i][t])) # NEW
+                    self.model.addConstr(self.vr_prim_max_temp1[i][t] == self.vpi - self.u * self.traces[i][index][t]) # NEW
+                    self.model.addConstr(self.vr_prim_max_temp2[i][t] == self.M * (self.u - 2 * self.zind[t])) # NEW
                 else:
-                    self.model.addConstr(self.vr_prim_max[i][t] == grb.max_(self.u * self.traces[i][index][t] - self.vpi, self.M * (self.u - 2 * self.zind[t])))
+                    # self.model.addConstr(self.vr_prim_max[i][t] == grb.max_(self.u * self.traces[i][index][t] - self.vpi, self.M * (self.u - 2 * self.zind[t])))
+                    self.model.addConstr(self.vr_prim_max[i][t] == grb.max_(self.vr_prim_max_temp1[i][t], self.vr_prim_max_temp2[i][t])) # NEW
+                    self.model.addConstr(self.vr_prim_max_temp1[i][t] == self.u * self.traces[i][index][t] - self.vpi) # NEW
+                    self.model.addConstr(self.vr_prim_max_temp2[i][t] == self.M * (self.u - 2 * self.zind[t])) # NEW
 
         ### Equation (44)
         for t in range(self.T):
@@ -197,7 +244,7 @@ class Optimize_Misclass_Gain(object):
             self.model.addConstr(self.zind_inc[t] <= self.zind_inc[t+1])
             self.model.addConstr(self.zind_dec[t] >= self.zind_dec[t+1])
         
-        self.model.addConstr(sum(self.zind) > 0)
+        self.model.addConstr(sum(self.zind) >= self.u)
 
         ### Equation (45)
         for t in range(self.T): 
