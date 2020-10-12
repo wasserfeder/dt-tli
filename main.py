@@ -135,12 +135,11 @@ def learn_formula(matfile, depth, numtree, inc, verbose = True):
     ######### DEBUGGING Optimization Problem ################
     signals = load_traces(matfile)
     primitives1 = make_stl_primitives1(signals)
-    print(primitives1)
     num_signals = len(signals.labels)
     pdist = np.true_divide(np.ones(num_signals), num_signals)
     prev_rho = None
     disp = False
-    optimize_impurity = Optimize_Misclass_Gain(signals, primitives1[1].copy, 1, prev_rho, pdist, disp)
+    optimize_impurity = Optimize_Misclass_Gain(signals, primitives1[0], 1, prev_rho, pdist, disp)
     primitive, impurity = optimize_impurity.get_solution()
     # opt_prims = optimize_inf_gain(signals, primitives1[1].copy(), prim_level, prev_rho, pdist, disp)
     # opt_prims = [optimize_inf_gain(traces, primitive.copy(), True, None, pdist, False) for primitive in primitives1]
