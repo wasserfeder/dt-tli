@@ -20,10 +20,10 @@ def draw_results(mat_data):
             pos_indices.append(i)
         else:
             neg_indices.append(i)
-    
+
     # print(dimension)
     # print(data)
-    
+
 
     datafig, axs = plt.subplots(dimension, 2)
     for j in range(dimension):
@@ -56,10 +56,9 @@ def draw_results(mat_data):
         axs[0, 1].set_title("Negative Signals")
     else:
         axs[1].set_title("Negative Signals")
-    
-    plt.show(block = False)
-    datafig.savefig('/home/serlin/Documents/Erfan/Projects/LearningSpecifications/dt-tli/Results/data_visualization/data_time.eps', format='eps')
 
+    plt.show(block = False)
+    datafig.savefig('/Users/erfanaasi/Documents/University/Projects/Learning Specifications/dt-tli/Results/data_time.eps', format='eps')
 
 def get_argparser():
     parser = argparse.ArgumentParser(
