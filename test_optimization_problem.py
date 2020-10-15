@@ -13,6 +13,9 @@ from os import path
 import os
 
 
+
+######### (G_[14.6, 57.3] x_1 < 9.33)
+
 class PrimitiveMILP(object):
     '''TODO:
     '''
@@ -40,13 +43,13 @@ class PrimitiveMILP(object):
         #     max_signals[i] = max(signals[i])
         # min_threshold, max_threshold = min(min_signals), max(max_signals)
 
-        self.threshold = 9.24
+        self.threshold = 11.16
 
-        # primitive threshold
+        ## primitive threshold
         # self.threshold = self.model.addVar(name='threshold',
         #                                    lb=min_threshold, ub=max_threshold,
         #                                    vtype=GRB.CONTINUOUS)
-        # primitive time interval indicator function
+        ## primitive time interval indicator function
         # self.indicator = np.zeros(self.horizon + 1)
         # for t in range(15, 57):
         #     self.indicator[t] = 1
@@ -158,7 +161,7 @@ def test1():
     labels          = list(mat_data['labels'][0])
     num_signals     = len(labels)
     signals         = [mat_data['data'][i][0] for i in range(num_signals)]
-    
+
     milp = PrimitiveMILP(signals, None)
     rho = [milp.predicate_robustness(i) for i in range(len(signals))]
 
@@ -171,14 +174,16 @@ def test1():
             pos_indices.append(i)
         else:
             neg_indices.append(i)
-    for i in pos_indices:
-        milp.model.addConstr(rho[i] + epsilon[i] >= 0.1)
-    for i in neg_indices:
-        milp.model.addConstr(rho[i] - epsilon[i] <= -0.1)
-    
-    
+    # for i in pos_indices:
+    #     milp.model.addConstr(rho[i] + epsilon[i] >= 0.1)
+    # for i in neg_indices:
+    #     milp.model.addConstr(rho[i] - epsilon[i] <= -0.1)
 
-    milp.model.setObjective(sum(rho) + np.mean(milp.indicator) - milp.M * sum(epsilon), GRB.MAXIMIZE)
+
+
+    # milp.model.setObjective(sum(rho[i] for i in pos_indices) - sum(rho[i] for i in neg_indices) + np.mean(milp.indicator) - milp.M * sum(epsilon), GRB.MAXIMIZE)
+    milp.model.setObjective(grb.quicksum(rho[i] for i in pos_indices) - grb.quicksum(rho[i] for i in neg_indices) + sum(milp.indicator)/len(milp.indicator), GRB.MAXIMIZE)
+
     milp.model.update()
     milp.model.optimize()
     print(milp.model.status)
@@ -195,8 +200,6 @@ def test1():
 
 def main():
     test1()
-
-
 
 
 if __name__ == '__main__':
