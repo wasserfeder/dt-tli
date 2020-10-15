@@ -160,7 +160,8 @@ def test1():
     milp.model.addConstr(rho[1] >= 0.01)
     milp.model.addConstr(rho[2] <= -0.01)
 
-    milp.model.setObjective(sum(rho) + np.mean(milp.indicator), GRB.MAXIMIZE)
+    # milp.model.setObjective(rho[0]+rho[1]-rho[2] + np.mean(milp.indicator), GRB.MAXIMIZE)
+    milp.model.setObjective(rho[0]+rho[1]-rho[2], GRB.MAXIMIZE)
     milp.model.update()
     milp.model.optimize()
     print(milp.model.status)
