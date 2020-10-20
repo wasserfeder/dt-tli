@@ -150,18 +150,22 @@ def test1():
     '''TODO:
     '''
 
-    signals = [np.array([0.1, 0.2, 0.3]),
-               np.array([0.1, 0.3, 0.4]),
-               np.array([0.3, 0.1, 0.1])]
+    signals = [np.array([0.1, 0.2, 0.3, 0.4]),
+               np.array([0.1, 0.3, 0.4, 0.3]),
+               np.array([0.3, 0.3, 0.3, 0.3])]
 
     milp = PrimitiveMILP(signals, None)
     rho = [milp.predicate_robustness(i) for i in range(len(signals))]
-    milp.model.addConstr(rho[0] >= 0.01)
-    milp.model.addConstr(rho[1] >= 0.01)
-    milp.model.addConstr(rho[2] <= -0.01)
+    epsilon = [milp.model.addVar(lb=0, ub=milp.M, vtype=GRB.CONTINUOUS)
+             for i in range(3)]
+    milp.model.addConstr(rho[0] + epsilon[0] >= 0.01)
+    milp.model.addConstr(rho[1] + epsilon[1] >= 0.01)
+    milp.model.addConstr(rho[2] - epsilon[2] <= -0.01)
 
     # milp.model.setObjective(rho[0]+rho[1]-rho[2] + np.mean(milp.indicator), GRB.MAXIMIZE)
-    milp.model.setObjective(rho[0]+rho[1]-rho[2], GRB.MAXIMIZE)
+    milp.model.setObjective(rho[0]+rho[1]-rho[2] + np.mean(milp.indicator) - milp.M * sum(epsilon), GRB.MAXIMIZE)
+    # milp.model.setObjective(rho[0]+rho[1]-rho[2], GRB.MAXIMIZE)
+    
     milp.model.update()
     milp.model.optimize()
     print(milp.model.status)

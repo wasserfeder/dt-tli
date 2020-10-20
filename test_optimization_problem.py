@@ -36,24 +36,24 @@ class PrimitiveMILP(object):
         self.M = 20 # TODO: set proper value
         self.horizon = len(self.signals[0]) - 1
 
-        # num_signals = len(signals)
-        # min_signals, max_signals = np.zeros(num_signals), np.zeros(num_signals)
-        # for i in range(num_signals):
-        #     min_signals[i] = min(signals[i])
-        #     max_signals[i] = max(signals[i])
-        # min_threshold, max_threshold = min(min_signals), max(max_signals)
+        num_signals = len(signals)
+        min_signals, max_signals = np.zeros(num_signals), np.zeros(num_signals)
+        for i in range(num_signals):
+            min_signals[i] = min(signals[i])
+            max_signals[i] = max(signals[i])
+        min_threshold, max_threshold = min(min_signals), max(max_signals)
 
-        self.threshold = 11.16
+        # self.threshold = 11.16
 
         ## primitive threshold
-        # self.threshold = self.model.addVar(name='threshold',
-        #                                    lb=min_threshold, ub=max_threshold,
-        #                                    vtype=GRB.CONTINUOUS)
-        ## primitive time interval indicator function
-        # self.indicator = np.zeros(self.horizon + 1)
-        # for t in range(15, 57):
-        #     self.indicator[t] = 1
-        self.indicator = self.indicator_function()
+        self.threshold = self.model.addVar(name='threshold',
+                                           lb=min_threshold, ub=max_threshold,
+                                           vtype=GRB.CONTINUOUS)
+        # primitive time interval indicator function
+        self.indicator = np.zeros(self.horizon + 1)
+        for t in range(15, 57):
+            self.indicator[t] = 1
+        # self.indicator = self.indicator_function()
 
 
 
@@ -190,9 +190,9 @@ def test1():
 
     print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n\tSolution:')
     print([(r.varName, r.x) for r in rho])
-    # print(milp.threshold.varName, milp.threshold.x)
-    print([var.x for var in milp.indicator])
-    print('Time interval', milp.get_interval())
+    print(milp.threshold.varName, milp.threshold.x)
+    # print([var.x for var in milp.indicator])
+    # print('Time interval', milp.get_interval())
 
 
 
