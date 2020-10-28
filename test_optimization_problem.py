@@ -36,13 +36,13 @@ class PrimitiveMILP(object):
         self.M = 20 # TODO: set proper value
         self.horizon = len(self.signals[0]) - 1
 
-        num_signals = len(signals)
-        min_signals, max_signals = np.zeros(num_signals), np.zeros(num_signals)
-        for i in range(num_signals):
+        self.num_signals = len(signals)
+        min_signals, max_signals = np.zeros(self.num_signals), np.zeros(self.num_signals)
+        for i in range(self.num_signals):
             min_signals[i] = min(signals[i])
             max_signals[i] = max(signals[i])
         min_threshold, max_threshold = min(min_signals), max(max_signals)
-
+        print(min_threshold, max_threshold)
         # self.threshold = 11.16
 
         ## primitive threshold
@@ -102,40 +102,92 @@ class PrimitiveMILP(object):
         r_vars = [self.model.addVar(lb=-self.M, ub=self.M, vtype=GRB.CONTINUOUS)
              for t in range(self.horizon+1)]
 
-        if not custom_encoding:
-            s_vars = [self.model.addVar(lb=-self.rho_max, ub=self.rho_max, vtype=GRB.CONTINUOUS)
-                      for t in range(self.horizon+1)]
-            m_vars = [self.model.addVar(lb=-self.M, ub=self.M,
-                                        vtype=GRB.CONTINUOUS)
-                      for t in range(self.horizon+1)]
+        
+        s_vars = [self.model.addVar(lb=-self.rho_max, ub=self.rho_max, vtype=GRB.CONTINUOUS)
+                    for t in range(self.horizon+1)]
+        m_vars = [self.model.addVar(lb=-self.M, ub=self.M,
+                                    vtype=GRB.CONTINUOUS)
+                    for t in range(self.horizon+1)]
 
-            for t, (r_var, s_var, m_var) in enumerate(zip(r_vars, s_vars, m_vars)):
-                # self.model.addConstr(s_var == (signal[t] - self.threshold))
-                self.model.addConstr(s_var == (self.threshold - signal[t]))
-                self.model.addConstr(m_var == self.M * (1 - 2 * self.indicator[t]))
-                self.model.addConstr(r_var == grb.max_(s_var, m_var))
+        for t, (r_var, s_var, m_var) in enumerate(zip(r_vars, s_vars, m_vars)):
+            self.model.addConstr(s_var == (self.threshold - signal[t]))
+            self.model.addConstr(m_var == self.M * (1 - 2 * self.indicator[t]))
+            self.model.addConstr(r_var == grb.max_(s_var, m_var))
 
-            self.model.addConstr(rho == grb.min_(r_vars))
-
-        else:
-            for t, r_var in enumerate(r_vars):
-                s_var = (signal[t] - self.threshold)
-                m_var = self.M * (1 - 2 * self.indicator[t])
-                self.model.addConstr(r_var >= s_var)
-                self.model.addConstr(r_var >= m_var)
-                z = self.model.addVar(vtype=GRB.BINARY)
-                self.model.addConstr(r_var <= s_var + 10 * z)
-                self.model.addConstr(r_var <= m_var + 10 * (1-z))
-
-            z_vars = [self.model.addVar(vtype=GRB.BINARY)
-                      for t in range(self.horizon+1)]
-            for r_var, z_var in zip(r_vars, z_vars):
-                self.model.addConstr(rho <= r_var)
-                self.model.addConstr(rho >= r_var - self.M * (1 - z_var))
-            self.model.addConstr(sum(z_vars) == 1)
-
+        self.model.addConstr(rho == grb.min_(r_vars))
         return rho
 
+
+    def impurity_optimization(self, rho, pos_indices, neg_indices):
+        S_true = [self.model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY,vtype=GRB.CONTINUOUS) for t in range(self.num_signals)]
+        S_false = [self.model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY,vtype=GRB.CONTINUOUS) for t in range(self.num_signals)]
+        MR_true = self.model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY,vtype=GRB.CONTINUOUS)
+        MR_false = self.model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY,vtype=GRB.CONTINUOUS)
+        obj = self.model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY,vtype=GRB.CONTINUOUS)
+
+        z_true = [self.model.addVar(vtype = GRB.BINARY) for t in range(self.num_signals)]
+        z_true_pos = [self.model.addVar(vtype = GRB.BINARY) for t in range(self.num_signals)]
+        z_true_neg = [self.model.addVar(vtype = GRB.BINARY) for t in range(self.num_signals)]
+        z_true_pos_cardinality = self.model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY,vtype=GRB.CONTINUOUS)
+        z_true_neg_cardinality = self.model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY,vtype=GRB.CONTINUOUS)
+
+        z_false_pos = [self.model.addVar(vtype = GRB.BINARY) for t in range(self.num_signals)]
+        z_false_neg = [self.model.addVar(vtype = GRB.BINARY) for t in range(self.num_signals)]
+        z_false_pos_cardinality = self.model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY,vtype=GRB.CONTINUOUS)
+        z_false_neg_cardinality = self.model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY,vtype=GRB.CONTINUOUS)
+        
+        ################ True ones ######################
+        for i in range(self.num_signals):
+            self.model.addConstr(S_true[i] == grb.max_(rho[i], 0))
+            self.model.addGenConstrIndicator(z_true[i], True, S_true[i] >= 0.0001)
+            self.model.addGenConstrIndicator(z_true[i], False, S_true[i] <= 0.0)
+
+        ## True positive
+        for i in neg_indices:
+            self.model.addConstr(z_true_pos[i] == 0)
+
+        for i in pos_indices:
+            self.model.addGenConstrIndicator(z_true_pos[i], True, z_true[i] >= 0.1)
+            self.model.addGenConstrIndicator(z_true_pos[i], False, z_true[i] <= 0.0)
+
+        ## True negative
+        for i in pos_indices:
+            self.model.addConstr(z_true_neg[i] == 0)
+
+        for i in neg_indices:
+            self.model.addGenConstrIndicator(z_true_neg[i], True, z_true[i] >= 0.1)
+            self.model.addGenConstrIndicator(z_true_neg[i], False, z_true[i] <= 0.0)
+
+        self.model.addConstr(z_true_pos_cardinality == grb.quicksum(z_true_pos))
+        self.model.addConstr(z_true_neg_cardinality == grb.quicksum(z_true_neg))
+        self.model.addConstr(MR_true == grb.min_(z_true_pos_cardinality, z_true_neg_cardinality))
+
+
+        ################# Negative ones ####################
+        ## False positive
+        for i in neg_indices:
+            self.model.addConstr(z_false_pos[i] == 0)
+
+        for i in pos_indices:
+            self.model.addGenConstrIndicator(z_false_pos[i], True, z_true[i] <= 0.0)
+            self.model.addGenConstrIndicator(z_false_pos[i], False, z_true[i] >= 0.1)
+
+        ## False negative
+        for i in pos_indices:
+            self.model.addConstr(z_false_neg[i] == 0)
+
+        for i in neg_indices:
+            self.model.addGenConstrIndicator(z_false_neg[i], True, z_true[i] <= 0.0)
+            self.model.addGenConstrIndicator(z_false_neg[i], False, z_true[i] >= 0.1)
+
+        self.model.addConstr(z_false_pos_cardinality == grb.quicksum(z_false_pos))
+        self.model.addConstr(z_false_neg_cardinality == grb.quicksum(z_false_neg))
+        self.model.addConstr(MR_false == grb.min_(z_false_pos_cardinality, z_false_neg_cardinality))
+
+        ################# Objective function #################
+        self.model.addConstr(obj == grb.min_(MR_true, MR_false))
+        self.model.setObjective(obj, GRB.MINIMIZE)
+        self.model.update()
 
 def get_argparser():
     parser = argparse.ArgumentParser(
@@ -164,27 +216,24 @@ def test1():
 
     milp = PrimitiveMILP(signals, None)
     rho = [milp.predicate_robustness(i) for i in range(len(signals))]
-
-    epsilon = [milp.model.addVar(lb=0, ub=milp.M, vtype=GRB.CONTINUOUS)
-             for i in range(num_signals)]
-
     pos_indices, neg_indices = [], []
     for i in range(len(labels)):
         if labels[i] >= 0:
             pos_indices.append(i)
         else:
             neg_indices.append(i)
-    # for i in pos_indices:
-    #     milp.model.addConstr(rho[i] + epsilon[i] >= 0.1)
-    # for i in neg_indices:
-    #     milp.model.addConstr(rho[i] - epsilon[i] <= -0.1)
+    milp.impurity_optimization(rho, pos_indices, neg_indices)
+
+    
+
+    
 
 
 
     # milp.model.setObjective(sum(rho[i] for i in pos_indices) - sum(rho[i] for i in neg_indices) + np.mean(milp.indicator) - milp.M * sum(epsilon), GRB.MAXIMIZE)
-    milp.model.setObjective(grb.quicksum(rho[i] for i in pos_indices) - grb.quicksum(rho[i] for i in neg_indices) + sum(milp.indicator)/len(milp.indicator), GRB.MAXIMIZE)
+    # milp.model.setObjective(grb.quicksum(rho[i] for i in pos_indices) - grb.quicksum(rho[i] for i in neg_indices) + sum(milp.indicator)/len(milp.indicator), GRB.MAXIMIZE)
 
-    milp.model.update()
+    # milp.model.update()
     milp.model.optimize()
     print(milp.model.status)
 
@@ -193,8 +242,6 @@ def test1():
     print(milp.threshold.varName, milp.threshold.x)
     # print([var.x for var in milp.indicator])
     # print('Time interval', milp.get_interval())
-
-
 
 
 
