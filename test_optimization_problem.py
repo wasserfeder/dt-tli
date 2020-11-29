@@ -50,10 +50,10 @@ class PrimitiveMILP(object):
                                            lb=min_threshold, ub=max_threshold,
                                            vtype=GRB.CONTINUOUS)
         # primitive time interval indicator function
-        self.indicator = np.zeros(self.horizon + 1)
-        for t in range(15, 57):
-            self.indicator[t] = 1
-        # self.indicator = self.indicator_function()
+        # self.indicator = np.zeros(self.horizon + 1)
+        # for t in range(15, 57):
+        #     self.indicator[t] = 1
+        self.indicator = self.indicator_function()
 
 
 
@@ -102,7 +102,7 @@ class PrimitiveMILP(object):
         r_vars = [self.model.addVar(lb=-self.M, ub=self.M, vtype=GRB.CONTINUOUS)
              for t in range(self.horizon+1)]
 
-        
+
         s_vars = [self.model.addVar(lb=-self.rho_max, ub=self.rho_max, vtype=GRB.CONTINUOUS)
                     for t in range(self.horizon+1)]
         m_vars = [self.model.addVar(lb=-self.M, ub=self.M,
@@ -135,7 +135,7 @@ class PrimitiveMILP(object):
         z_false_neg = [self.model.addVar(vtype = GRB.BINARY) for t in range(self.num_signals)]
         z_false_pos_cardinality = self.model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY,vtype=GRB.CONTINUOUS)
         z_false_neg_cardinality = self.model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY,vtype=GRB.CONTINUOUS)
-        
+
         ################ True ones ######################
         for i in range(self.num_signals):
             self.model.addConstr(S_true[i] == grb.max_(rho[i], 0))
@@ -224,9 +224,9 @@ def test1():
             neg_indices.append(i)
     milp.impurity_optimization(rho, pos_indices, neg_indices)
 
-    
 
-    
+
+
 
 
 
