@@ -12,7 +12,7 @@ import gurobipy as grb
 from gurobipy import GRB
 import numpy as np
 from scipy.io import loadmat, savemat
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 from robustness import trace_robustness_order1_lkt_1d
 from robustness import trace_robustness_order1_lkt_nd
@@ -198,8 +198,8 @@ def test1():
 
     t0 = time.time()
     milp = PrimitiveMILP(signals, labels, None)
-    # milp.impurity_optimization(signal_dimension=0) # x-axis
-    milp.impurity_optimization(signal_dimension=1) # y-axis
+    milp.impurity_optimization(signal_dimension=0) # x-axis
+    # milp.impurity_optimization(signal_dimension=1) # y-axis
 
     dt = time.time() - t0
     print('Setup time:', dt)
