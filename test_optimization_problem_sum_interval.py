@@ -189,7 +189,8 @@ def test1():
     mat_data        = loadmat(filename)
     timepoints      = mat_data['t'][0]
     labels          = mat_data['labels'][0]
-    signals         = mat_data['data']
+    signals         = mat_data['data']      # alw >
+    # signals         = - mat_data['data']    # alw <=
     print(signals.shape)
     print('Number of signals:', len(signals))
     print('Time points:', len(timepoints))
@@ -198,8 +199,8 @@ def test1():
 
     t0 = time.time()
     milp = PrimitiveMILP(signals, labels, None)
-    milp.impurity_optimization(signal_dimension=0) # x-axis
-    # milp.impurity_optimization(signal_dimension=1) # y-axis
+    # milp.impurity_optimization(signal_dimension=0) # x-axis
+    milp.impurity_optimization(signal_dimension=1) # y-axis
 
     dt = time.time() - t0
     print('Setup time:', dt)
