@@ -199,8 +199,8 @@ def test1():
 
     t0 = time.time()
     milp = PrimitiveMILP(signals, labels, None)
-    # milp.impurity_optimization(signal_dimension=0) # x-axis
-    milp.impurity_optimization(signal_dimension=1) # y-axis
+    milp.impurity_optimization(signal_dimension=0) # x-axis
+    # milp.impurity_optimization(signal_dimension=1) # y-axis
 
     dt = time.time() - t0
     print('Setup time:', dt)
