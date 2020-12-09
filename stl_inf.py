@@ -6,12 +6,14 @@ Contains the decision tree construction and related definitions.
 Author: Erfan Aasi (eaasi@bu.edu)
 
 """
-from stl_syntax import Formula, AND, OR, NOT, satisfies, robustness
+from stl_syntax import Formula, AND, OR, NOT, satisfies, robustness, GT
 # from stl_impurity import Optimize_Misclass_Gain
 # from stl_linear_optimization import Optimize_Misclass_Gain
 from stl_linear_optimization import Optimize_Misclass_Gain
 from stl_prim import make_stl_primitives1, make_stl_primitives2, split_groups, SimpleModel
 import numpy as np
+from test_optimization_problem_sum_interval import PrimitiveMILP
+
 
 class Traces(object):
     """
@@ -168,18 +170,8 @@ class DTree(object):
 
 
 
-def learn_stlinf(signals, pdist, depth, inc, rho, stop_condition, disp):
-    args = locals().copy()
-    # Stopping condition
-    if any([stop(args) for stop in stop_condition]):
-        return None
-
-    # Find primitive using impurity measure
-    primitives1 = make_stl_primitives1(signals)
-    primitives2 = make_stl_primitives2(signals)
-    primitive, impurity = _find_best_primitive(signals, primitives1, primitives2, rho, pdist, disp)
-    if disp:
-        print primitive
+def build_tree(signals, labels, depth, primitives1, rho):
+    primitive, impurity = find_best_primitive(signals, labels, primitives1, rho)
 
     # Classify using best primitive and split into groups
     tree = DTree(primitive, traces)
@@ -207,12 +199,39 @@ def learn_stlinf(signals, pdist, depth, inc, rho, stop_condition, disp):
                    for group in [zip(*sat_), zip(*unsat_)]]
 
     # Recursively build the tree
-    tree.left = bdt_stlinf_(sat[0], sat[1], depth - 1, pdist, inc,
-                        optimize_impurity, stop_condition)
-    tree.right = bdt_stlinf_(unsat[0], unsat[1], depth - 1, pdist, inc,
-                         optimize_impurity, stop_condition)
+    tree.left = build_tree(sat_indices, labels, depth - 1, primitives1, rho)
+    tree.right = build_tree(unsat_indices, labels, depth - 1, primitives1, rho)
 
     return tree
+
+
+
+
+
+def find_best_primitive(signals, labels, primitives1, rho):
+    opt_prims = []
+    for primitive in primitives1:
+        primitive = primitive.copy()
+        if primitive.args[0].args[0].op == GT:
+            milp = PrimitiveMILP(signals, labels, None)
+        else:
+            milp = PrimitiveMILP(-signals, labels, None)
+
+        milp.impurity_optimization(signal_dimension = primitive.args[0].args[0].index)
+        milp.model.optimize()
+        if primitive.args[0].args[0].op == GT:
+            primitive.pi = milp.get_threshold()
+        else:
+            primitive.pi = - milp.get_threshold()
+        primitive.t0 = milp.get_interval()[0]
+        primitive.t1 = milp.get_interval()[1]
+        opt_prims.append([primitive, milp.model.objVal])
+
+
+    return min(opt_prims, key=lambda x: x[1])
+
+
+
 
 def perfect_stop(kwargs):
     """
@@ -226,16 +245,3 @@ def depth_stop(kwargs):
     Returns True if the maximum depth has been reached
     """
     return kwargs['depth'] <= 0
-
-def _find_best_primitive(signals, primitives1, primitives2, robustness, pdist, disp):
-    # Parameters will be set for the copy of the primitive
-    opt_prims = []
-    for primitive in primitives1:
-        optimize_impurity = Optimize_Misclass_Gain(signals. primitive.copy(), 1, robustness, pdist, disp)
-        opt_prims.append(optimize_impurity.get_solution())
-
-    for primitive in primitives2:
-        optimize_impurity = Optimize_Misclass_Gain(signals. primitive.copy(), 2, robustness, pdist, disp)
-        opt_prims.append(optimize_impurity.get_solution())
-
-    return min(opt_prims, key=lambda x: x[1])

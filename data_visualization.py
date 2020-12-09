@@ -57,7 +57,7 @@ def draw_results(mat_data):
     else:
         axs[1].set_title("Negative Signals")
 
-    plt.show(block = False)
+    plt.show(block = True)
     datafig.savefig('/Users/erfanaasi/Documents/University/Projects/Learning Specifications/dt-tli/Results/data_time.eps', format='eps')
 
 def get_argparser():

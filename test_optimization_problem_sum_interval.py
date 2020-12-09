@@ -163,7 +163,7 @@ class PrimitiveMILP(object):
         else:
             raise RuntimeError('The model needs to be solved first!')
 
-    def get_treshold(self):
+    def get_threshold(self):
         if self.model.status == GRB.OPTIMAL:
             return self.threshold.X
         else:
@@ -195,7 +195,6 @@ def test1():
     print('Number of signals:', len(signals))
     print('Time points:', len(timepoints))
 
-    # signals = -signals
 
     t0 = time.time()
     milp = PrimitiveMILP(signals, labels, None)
@@ -212,8 +211,9 @@ def test1():
     print('Model optimization status:', milp.model.status)
 
     print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n\tSolution:')
-    print('Threshold:', milp.get_treshold())
+    print('Threshold:', milp.get_threshold())
     print('Time interval:', milp.get_interval())
+    print('Objective value:', milp.model.objVal)
 
 
 def main():

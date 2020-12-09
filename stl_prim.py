@@ -68,7 +68,7 @@ class STLFormula1(Formula):
                 ])
             ])
         else:
-            Formula.__init__(self, EVENTUALLY, [
+            Formula.__init__(self, ALWAYS, [
                 Formula(EXPR, [
                     STLSignal(index, op)
                 ])
@@ -202,17 +202,17 @@ class SimpleModel(object):
 
 
 def make_stl_primitives1(signals):
-    alw = [
+    alw_gt = [
         STLFormula1(True, index, op)
         for index, op
-        in itertools.product(range(len(signals.traces[0])), [LE])
+        in itertools.product(range(len(signals[0])), [GT])
     ]
-    ev = [
+    alw_le = [
         STLFormula1(False, index, op)
         for index, op
-        in itertools.product(range(len(signals.traces[0])), [LE])
+        in itertools.product(range(len(signals[0])), [LE])
     ]
-    return alw + ev
+    return alw_gt + alw_le
 
 
 
