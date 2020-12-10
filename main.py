@@ -10,7 +10,7 @@ import argparse
 import os
 import time
 from stl_prim import make_stl_primitives1
-from stl_inf import find_best_primitive
+from stl_inf import build_tree
 
 
 
@@ -28,16 +28,14 @@ def learn_formula(filename, depth, numtree, inc):
     print('Number of signals:', len(signals))
     print('Time points:', len(timepoints))
 
-    t_begin = time.time()
+    t_begin     = time.time()
     primitives1 = make_stl_primitives1(signals)
-    initial_rho = [np.inf for i in range(len(signals))]
-    [primitive, obj] = find_best_primitive(signals, labels, primitives1, initial_rho)
-    print('Best primitive:', primitive)
-    print('Objective value:', obj)
-    print('Primitives:', primitives1)
-    # tree = build_tree(signals, labels, depth, primitives1, initial_rho)
-    # formula = tree.get_formula()
-    # print('Formula:', formula)
+    rho_path    = [np.inf for signal in signals]
+    # [primitive, obj] = find_best_primitive(signals, labels, primitives1, rho_path)
+
+    tree = build_tree(signals, labels, depth, primitives1, rho_path)
+    formula = tree.get_formula()
+    print('Formula:', formula)
 
     run_time = time.time() - t_begin
     print('Runtime:', run_time)

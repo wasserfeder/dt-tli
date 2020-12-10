@@ -12,7 +12,7 @@ import gurobipy as grb
 from gurobipy import GRB
 import numpy as np
 from scipy.io import loadmat, savemat
-# import matplotlib.pyplot as plt
+import pickle
 
 from robustness import trace_robustness_order1_lkt_1d
 from robustness import trace_robustness_order1_lkt_nd
@@ -23,7 +23,7 @@ class PrimitiveMILP(object):
     '''TODO:
     '''
 
-    def __init__(self, signals, labels, ranges, model=None):
+    def __init__(self, signals, labels, ranges, rho_path, model=None):
         '''TODO:
         '''
         if model is not None:
@@ -37,6 +37,7 @@ class PrimitiveMILP(object):
         self.M = 100        # TODO: set proper value
         self.horizon = len(signals[0][0])
         self.num_signals = len(signals)
+        self.rho_path = rho_path
 
         min_thresh = np.min(signals)
         max_thresh = np.max(signals)
@@ -138,10 +139,10 @@ class PrimitiveMILP(object):
     def impurity_optimization(self, signal_dimension=0):
         '''TODO:
         '''
-        primitive_variables = [self.robustness(i, signal_dimension)
+        self.primitive_variables = [self.robustness(i, signal_dimension, self.rho_path[i])
                                for i in range(self.num_signals)]
 
-        var = self.minimum_sum(primitive_variables, self.labels)
+        var = self.minimum_sum(self.primitive_variables, self.labels)
 
         # objective function
         self.model.setObjective(var, GRB.MINIMIZE)
@@ -169,6 +170,12 @@ class PrimitiveMILP(object):
         else:
             raise RuntimeError('The model needs to be solved first!')
 
+    def get_robustnesses(self):
+        if self.model.status == GRB.OPTIMAL:
+            return [rho.X for rho in self.primitive_variables]
+        else:
+            raise RuntimeError('The model needs to be solved first!')
+
 
 def get_argparser():
     parser = argparse.ArgumentParser(
@@ -191,15 +198,35 @@ def test1():
     labels          = mat_data['labels'][0]
     signals         = mat_data['data']      # alw >
     # signals         = - mat_data['data']    # alw <=
+
+    # pickle_in = open("indices.pickle","rb")
+    # dict = pickle.load(pickle_in)
+    # sat_indices = dict["sat_indices"]
+    # unsat_indices = dict["unsat_indices"]
+    # sat_rho = dict["sat_rho"]
+    # unsat_rho = dict["unsat_rho"]
+    # sat_signals, sat_labels = [], []
+    # unsat_signals, unsat_labels = [], []
+    # for i in sat_indices:
+    #     sat_signals.append(-signals[i])
+    #     sat_labels.append(labels[i])
+    #
+    # for i in unsat_indices:
+    #     unsat_signals.append(signals[i])
+    #     unsat_labels.append(labels[i])
+
+    # rho_path = sat_rho
+    # rho_path = unsat_rho
+    rho_path        = [np.inf for signal in signals]
     print(signals.shape)
     print('Number of signals:', len(signals))
     print('Time points:', len(timepoints))
 
 
     t0 = time.time()
-    milp = PrimitiveMILP(signals, labels, None)
-    milp.impurity_optimization(signal_dimension=0) # x-axis
-    # milp.impurity_optimization(signal_dimension=1) # y-axis
+    milp = PrimitiveMILP(signals, labels, None, rho_path)
+    # milp.impurity_optimization(signal_dimension=0) # x-axis
+    milp.impurity_optimization(signal_dimension=1) # y-axis
 
     dt = time.time() - t0
     print('Setup time:', dt)
@@ -214,7 +241,18 @@ def test1():
     print('Threshold:', milp.get_threshold())
     print('Time interval:', milp.get_interval())
     print('Objective value:', milp.model.objVal)
+    ####
+    sat_indices, unsat_indices = [], []
+    rho = milp.get_robustnesses()
+    for i in range(len(signals)):
+        if rho[i] >= 0:
+            sat_indices.append(i)
+        else:
+            unsat_indices.append(i)
 
+    print("number of satisfying signals:", len(sat_indices))
+    print("number of violating signals:", len(unsat_indices))
+    ####
 
 def main():
     test1()
