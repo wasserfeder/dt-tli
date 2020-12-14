@@ -95,7 +95,7 @@ class PrimitiveMILP(object):
 
         return rho
 
-    def minimum_sum(self, primitive_variables, labels):
+    def minimum_sum_robustness(self, primitive_variables, labels):
         '''TODO:
         '''
         tp_vars = []
@@ -111,30 +111,72 @@ class PrimitiveMILP(object):
             self.model.addConstr(neg_rho == grb.min_(rho, 0))
             if label > 0:
                 tp_vars.append(pos_rho)
-                fn_vars.append(neg_rho)
+                fp_vars.append(neg_rho)
             else:
-                fp_vars.append(pos_rho)
-                tn_vars.append(neg_rho)
+                tn_vars.append(pos_rho)
+                fn_vars.append(neg_rho)
 
         tp = sum(tp_vars)
         fp = sum(fp_vars)
         tn = sum(tn_vars)
         fn = sum(fn_vars)
 
-        psum = self.model.addVar(name='positive_sum', vtype=GRB.CONTINUOUS)
-        self.model.addConstr(psum == tp - fn)
-        nsum = self.model.addVar(name='negative_sum', vtype=GRB.CONTINUOUS)
-        self.model.addConstr(nsum == fp - tn)
-        tsum = self.model.addVar(name='correctly_classified_sum',
+        self.psum = self.model.addVar(name='positive_sum', vtype=GRB.CONTINUOUS)
+        self.model.addConstr(self.psum == tp - fp)
+        self.nsum = self.model.addVar(name='negative_sum', vtype=GRB.CONTINUOUS)
+        self.model.addConstr(self.nsum == tn - fn)
+        self.tsum = self.model.addVar(name='correctly_classified_sum',
                                  vtype=GRB.CONTINUOUS)
-        self.model.addConstr(tsum == tp - tn)
-        msum = self.model.addVar(name='misclassified_sum', vtype=GRB.CONTINUOUS)
-        self.model.addConstr(msum == fp - fn)
+        self.model.addConstr(self.tsum == tp - fn)
+        self.msum = self.model.addVar(name='misclassified_sum', vtype=GRB.CONTINUOUS)
+        self.model.addConstr(self.msum == tn - fp)
 
         var = self.model.addVar(name='objective', vtype=GRB.CONTINUOUS)
-        self.model.addConstr(var == grb.min_(psum, nsum, tsum, msum))
+        self.model.addConstr(var == grb.min_(self.psum, self.nsum, self.tsum, self.msum))
 
         return var
+
+
+    def minimum_sum_unitary(self, primitive_variables, labels):
+        '''TODO:
+        '''
+        tp_vars = []
+        fp_vars = []
+        tn_vars = []
+        # fn_vars = []
+        for rho, label in zip(primitive_variables, labels):
+            z_pos = self.model.addVar(vtype = GRB.BINARY)
+            self.model.addGenConstrIndicator(z_pos, True, rho >= 0.1)
+            self.model.addGenConstrIndicator(z_pos, False, rho <= 0)
+
+            if label > 0:
+                tp_vars.append(z_pos)
+                fp_vars.append(1-z_pos)
+            else:
+                tn_vars.append(z_pos)
+                # fn_vars.append(1-z_pos)
+
+        tp = sum(tp_vars)
+        fp = sum(fp_vars)
+        tn = sum(tn_vars)
+        # fn = sum(fn_vars)
+        fn = self.num_signals - tp - fp - tn
+
+        self.psum = self.model.addVar(name='positive_sum', vtype=GRB.INTEGER)
+        self.model.addConstr(self.psum == tp + fp)
+        self.nsum = self.model.addVar(name='negative_sum', vtype=GRB.INTEGER)
+        self.model.addConstr(self.nsum == tn + fn)
+        self.tsum = self.model.addVar(name='correctly_classified_sum',
+                                 vtype=GRB.INTEGER)
+        self.model.addConstr(self.tsum == tp + fn)
+        self.msum = self.model.addVar(name='misclassified_sum', vtype=GRB.INTEGER)
+        self.model.addConstr(self.msum == tn + fp)
+
+        var = self.model.addVar(name='objective', vtype=GRB.INTEGER)
+        self.model.addConstr(var == grb.min_(self.psum, self.nsum, self.tsum, self.msum))
+
+        return var
+
 
     def impurity_optimization(self, signal_dimension=0):
         '''TODO:
@@ -142,7 +184,8 @@ class PrimitiveMILP(object):
         self.primitive_variables = [self.robustness(i, signal_dimension, self.rho_path[i])
                                for i in range(self.num_signals)]
 
-        var = self.minimum_sum(self.primitive_variables, self.labels)
+        # var = self.minimum_sum_robustness(self.primitive_variables, self.labels)
+        var = self.minimum_sum_unitary(self.primitive_variables, self.labels)
 
         # objective function
         self.model.setObjective(var, GRB.MINIMIZE)
@@ -173,6 +216,13 @@ class PrimitiveMILP(object):
     def get_robustnesses(self):
         if self.model.status == GRB.OPTIMAL:
             return [rho.X for rho in self.primitive_variables]
+        else:
+            raise RuntimeError('The model needs to be solved first!')
+
+    def get_values(self):
+        if self.model.status == GRB.OPTIMAL:
+            a = [self.psum.X, self.nsum.X, self.tsum.X, self.msum.X]
+            return a
         else:
             raise RuntimeError('The model needs to be solved first!')
 
@@ -225,8 +275,8 @@ def test1():
 
     t0 = time.time()
     milp = PrimitiveMILP(signals, labels, None, rho_path)
-    # milp.impurity_optimization(signal_dimension=0) # x-axis
-    milp.impurity_optimization(signal_dimension=1) # y-axis
+    milp.impurity_optimization(signal_dimension=0) # x-axis
+    # milp.impurity_optimization(signal_dimension=1) # y-axis
 
     dt = time.time() - t0
     print('Setup time:', dt)
@@ -241,6 +291,7 @@ def test1():
     print('Threshold:', milp.get_threshold())
     print('Time interval:', milp.get_interval())
     print('Objective value:', milp.model.objVal)
+    print('values:', milp.get_values())
     ####
     sat_indices, unsat_indices = [], []
     rho = milp.get_robustnesses()
