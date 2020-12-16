@@ -184,8 +184,8 @@ class PrimitiveMILP(object):
         self.primitive_variables = [self.robustness(i, signal_dimension, self.rho_path[i])
                                for i in range(self.num_signals)]
 
-        # var = self.minimum_sum_robustness(self.primitive_variables, self.labels)
-        var = self.minimum_sum_unitary(self.primitive_variables, self.labels)
+        var = self.minimum_sum_robustness(self.primitive_variables, self.labels)
+        # var = self.minimum_sum_unitary(self.primitive_variables, self.labels)
 
         # objective function
         self.model.setObjective(var, GRB.MINIMIZE)
@@ -275,8 +275,8 @@ def test1():
 
     t0 = time.time()
     milp = PrimitiveMILP(signals, labels, None, rho_path)
-    milp.impurity_optimization(signal_dimension=0) # x-axis
-    # milp.impurity_optimization(signal_dimension=1) # y-axis
+    # milp.impurity_optimization(signal_dimension=0) # x-axis
+    milp.impurity_optimization(signal_dimension=1) # y-axis
 
     dt = time.time() - t0
     print('Setup time:', dt)

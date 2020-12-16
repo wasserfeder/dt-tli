@@ -9,7 +9,8 @@ Author: Erfan Aasi (eaasi@bu.edu)
 from stl_syntax import Formula, AND, OR, NOT, satisfies, robustness, GT
 import numpy as np
 from test_optimization_problem_sum_interval import PrimitiveMILP
-import pickle
+from pso_test import get_bounds, run_pso_optimization
+from pso import compute_robustness, PSO
 
 
 class DTree(object):
@@ -109,14 +110,16 @@ class DTree(object):
 
 
 
-def build_tree(signals, labels, depth, primitives1, rho_path):
+def build_tree(signals, labels, timepoints, depth, primitives1, rho_path):
     # Check stopping conditions
     if depth <= 0:
         return None
 
 
-    primitive, impurity, robustnesses = find_best_primitive(signals, labels, primitives1, rho_path)
+    # primitive, impurity, robustnesses = find_best_primitive_milp(signals, labels, timepoints, primitives1, rho_path)
+    primitive, impurity, robustnesses = find_best_primitive_pso(signals, labels, timepoints, primitives1, rho_path)
     print('Primitive:', primitive)
+    print('impurity:', impurity)
     tree = DTree(primitive, signals)
     sat_signals = []
     sat_indices = []
@@ -138,16 +141,18 @@ def build_tree(signals, labels, depth, primitives1, rho_path):
             unsat_rho.append(-robustnesses[i])
             unsat_labels.append(labels[i])
             unsat_indices.append(i)
-    dict = {'sat_indices':sat_indices, 'unsat_indices':unsat_indices, 'sat_rho': sat_rho, 'unsat_rho':unsat_rho}
-    pickle_out = open("indices.pickle", "wb")
-    pickle.dump(dict, pickle_out)
-    pickle_out.close()
+    sat_signals = np.array(sat_signals)
+    unsat_signals = np.array(unsat_signals)
 
+    # if impurity <= 5:
+    #     return None
 
+    print("number of satisfying signals:", len(sat_signals))
+    print("number of violating signals:", len(unsat_signals))
 
     # Recursively build the tree
-    tree.left = build_tree(sat_signals, sat_labels, depth - 1, primitives1, sat_rho)
-    tree.right = build_tree(unsat_signals, unsat_labels, depth - 1, primitives1, unsat_rho)
+    tree.left = build_tree(sat_signals, sat_labels, timepoints, depth - 1, primitives1, sat_rho)
+    tree.right = build_tree(unsat_signals, unsat_labels, timepoints, depth - 1, primitives1, unsat_rho)
 
     return tree
 
@@ -155,7 +160,7 @@ def build_tree(signals, labels, depth, primitives1, rho_path):
 
 
 
-def find_best_primitive(signals, labels, primitives1, rho_path):
+def find_best_primitive_milp(signals, labels, timepoints, primitives1, rho_path):
     opt_prims = []
     for primitive in primitives1:
         primitive = primitive.copy()
@@ -170,9 +175,37 @@ def find_best_primitive(signals, labels, primitives1, rho_path):
             primitive.pi = milp.get_threshold()
         else:
             primitive.pi = - milp.get_threshold()
-        primitive.t0 = milp.get_interval()[0]
-        primitive.t1 = milp.get_interval()[1]
-        rho = milp.get_robustnesses()
-        opt_prims.append([primitive, milp.model.objVal, rho])
+        primitive.t0 = timepoints[int(milp.get_interval()[0])]
+        primitive.t1 = timepoints[int(milp.get_interval()[1])]
+        rhos = milp.get_robustnesses()
+        opt_prims.append([primitive, milp.model.objVal, rhos])
+
+    return min(opt_prims, key=lambda x: x[1])
+
+
+
+
+def find_best_primitive_pso(signals, labels, timepoints, primitives1, rho_path):
+    opt_prims = []
+    for primitive in primitives1:
+        primitive = primitive.copy()
+        print("candidate primitive:", primitive)
+        signal_dimension = primitive.args[0].args[0].index
+        if primitive.args[0].args[0].op == GT:
+            params, impurity = run_pso_optimization(signals, labels, rho_path, signal_dimension)
+        else:
+            params, impurity = run_pso_optimization(-signals, labels, rho_path, signal_dimension)
+
+        if primitive.args[0].args[0].op == GT:
+            primitive.pi = params[0]
+        else:
+            primitive.pi = - params[0]
+        primitive.t0 = timepoints[int(params[1])]
+        primitive.t1 = timepoints[int(params[2])]
+        if primitive.args[0].args[0].op == GT:
+            rhos = [compute_robustness(signals[i], params[0], int(params[1]), int(params[2]), signal_dimension, rho_path[i]) for i in range(len(signals))]
+        else:
+            rhos = [compute_robustness(-signals[i], params[0], int(params[1]), int(params[2]), signal_dimension, rho_path[i]) for i in range(len(signals))]
+        opt_prims.append([primitive, impurity, rhos])
 
     return min(opt_prims, key=lambda x: x[1])

@@ -33,7 +33,7 @@ def learn_formula(filename, depth, numtree, inc):
     rho_path    = [np.inf for signal in signals]
     # [primitive, obj] = find_best_primitive(signals, labels, primitives1, rho_path)
 
-    tree = build_tree(signals, labels, depth, primitives1, rho_path)
+    tree = build_tree(signals, labels, timepoints, depth, primitives1, rho_path)
     formula = tree.get_formula()
     print('Formula:', formula)
 

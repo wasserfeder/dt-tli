@@ -16,20 +16,18 @@ def get_bounds(signals, signal_dimension=0):
         min_signals.append(min(signals[i][k]))
         max_signals.append(max(signals[i][k]))
     min_pi = min(min_signals)
-    print("min_pi:", min_pi)
     max_pi = max(max_signals)
-    print("max_pi:", max_pi)
     max_t = len(signals[0][0]) - 1
     bounds = [min_pi, max_pi, max_t]
     return bounds
 
 
 
-def run_pso_optimization(signals, labels, signal_dimension=0):
+def run_pso_optimization(signals, labels, rho_path, signal_dimension=0):
     bounds = get_bounds(signals, signal_dimension)
     particle_swarm = PSO(signals, labels, bounds, signal_dimension)
-    solution = particle_swarm.optimize_swarm()
-    return solution
+    params, impurity = particle_swarm.optimize_swarm(rho_path)
+    return params, impurity
 
 
 
@@ -59,8 +57,10 @@ def main():
     print('Number of signals:', len(signals))
     print('Time points:', len(timepoints))
 
-    solution    = run_pso_optimization(signals, labels, signal_dimension=0)
-    print("solution:", solution)
+    rho_path = [np.inf for signal in signals]
+    best_params, impurity   = run_pso_optimization(signals, labels, rho_path, signal_dimension = 1)
+    print("best primitive:", best_params)
+    print("impurity:", impurity)
 
 
 if __name__ == '__main__':
