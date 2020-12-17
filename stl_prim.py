@@ -14,65 +14,27 @@ from pyparsing import Word, alphas, Suppress, Optional, Combine, nums, \
 
 
 class STLSignal(Signal):
-
     def __init__(self, index=0, op=LE, pi=0):
-        self._index = index
-        self._op = op
-        self._pi = pi
-
-        # labels transform a time into a pair [j, t]
-        self._labels = [lambda t: [self._index, t]]
-        # transform to x_j - pi >= 0
-        self._f = lambda vs: (vs[0] - self._pi) * (-1 if self._op == LE else 1)
+        self.index = index
+        self.op = op
+        self.pi = pi
+        self.labels = [lambda t: [self.index, t]]
+        self.f = lambda vs: (vs[0] - self.pi) * (-1 if self.op == LE else 1)
 
     def __deepcopy__(self, memo):
         return STLSignal(self.index, self.op, self.pi)
 
     def __str__(self):
-        return "x_%d %s %.2f" % (self.index,
-                                 "<=" if self.op == LE else ">", self.pi)
-
-    @property
-    def pi(self):
-        return self._pi
-
-    @pi.setter
-    def pi(self, value):
-        self._pi = value
-
-    @property
-    def op(self):
-        return self._op
-
-    @op.setter
-    def op(self, value):
-        self._op = value
-
-    @property
-    def index(self):
-        return self._index
-
-    @index.setter
-    def index(self, value):
-        self._index = value
-
+        return "x_%d %s %.2f" % (self.index, "<=" if self.op == LE else ">", self.pi)
 
 
 class STLFormula1(Formula):
 
     def __init__(self, live, index, op):
         if live:
-            Formula.__init__(self, ALWAYS, [
-                Formula(EXPR, [
-                    STLSignal(index, op)
-                ])
-            ])
+            Formula.__init__(self, ALWAYS, [Formula(EXPR, [STLSignal(index, op)])])
         else:
-            Formula.__init__(self, ALWAYS, [
-                Formula(EXPR, [
-                    STLSignal(index, op)
-                ])
-            ])
+            Formula.__init__(self, ALWAYS, [Formula(EXPR, [STLSignal(index, op)])])
 
     @property
     def index(self):
@@ -115,21 +77,9 @@ class STLFormula2(Formula):
 
     def __init__(self, live, index, op):
         if live:
-            Formula.__init__(self, ALWAYS, [
-                Formula(EVENTUALLY, [
-                    Formula(EXPR, [
-                        STLSignal(index, op)
-                    ])
-                ])
-            ])
+            Formula.__init__(self, ALWAYS, [Formula(EVENTUALLY, [Formula(EXPR, [STLSignal(index, op)])])])
         else:
-            Formula.__init__(self, EVENTUALLY, [
-                Formula(ALWAYS, [
-                    Formula(EXPR, [
-                        STLSignal(index, op)
-                    ])
-                ])
-            ])
+            Formula.__init__(self, EVENTUALLY, [Formula(ALWAYS, [Formula(EXPR, [STLSignal(index, op)])])])
 
     @property
     def index(self):
@@ -202,16 +152,8 @@ class SimpleModel(object):
 
 
 def make_stl_primitives1(signals):
-    alw_gt = [
-        STLFormula1(True, index, op)
-        for index, op
-        in itertools.product(range(len(signals[0])), [GT])
-    ]
-    alw_le = [
-        STLFormula1(False, index, op)
-        for index, op
-        in itertools.product(range(len(signals[0])), [LE])
-    ]
+    alw_gt = [STLFormula1(True, index, op) for index, op in itertools.product(range(len(signals[0])), [GT])]
+    alw_le = [STLFormula1(False, index, op) for index, op in itertools.product(range(len(signals[0])), [LE])]
     return alw_gt + alw_le
 
 

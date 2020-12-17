@@ -209,18 +209,9 @@ def robustness(formula, model, t=0):
                       model.tinter))
     }[formula.op]()
 
-def satisfies(formula, model, t=0):
-    """
-    Checks if a model satisfies a formula at some time.
+def satisfies(primitive, signal):
+    
 
-    Satisfaction is defined in this function as robustness >= 0.
-
-    formula : Formula
-    model : a model as defined in Signal
-    t : numeric
-        The time
-    """
-    return robustness(formula, model, t) >= 0
 
 
 # parser

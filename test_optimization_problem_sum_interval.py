@@ -184,8 +184,8 @@ class PrimitiveMILP(object):
         self.primitive_variables = [self.robustness(i, signal_dimension, self.rho_path[i])
                                for i in range(self.num_signals)]
 
-        var = self.minimum_sum_robustness(self.primitive_variables, self.labels)
-        # var = self.minimum_sum_unitary(self.primitive_variables, self.labels)
+        # var = self.minimum_sum_robustness(self.primitive_variables, self.labels)
+        var = self.minimum_sum_unitary(self.primitive_variables, self.labels)
 
         # objective function
         self.model.setObjective(var, GRB.MINIMIZE)

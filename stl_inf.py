@@ -13,38 +13,15 @@ from pso_test import get_bounds, run_pso_optimization
 from pso import compute_robustness, PSO
 
 
-class DTree(object):
-    """
-    Decission tree recursive structure
-
-    """
-
-    def __init__(self, primitive, signals, robustness=None,
-                 left=None, right=None):
-        """
-        primitive : a LLTFormula object
-                    The node's primitive
-        traces : a Traces object
-                 The traces used to build this node
-        robustness : a list of numeric. Not used
-        left : a DTree object. Optional
-               The subtree corresponding to an unsat result to this node's test
-        right : a DTree object. Optional
-                The subtree corresponding to a sat result to this node's test
-        """
-        self._primitive = primitive
+class DTree(object):        # Decission tree recursive structure
+    def __init__(self, primitive, signals, left=None, right=None):
+        self.primitive = primitive
         self.signals = signals
-        self._robustness = robustness
-        self._left = left
-        self._right = right
+        self.left = left
+        self.right = right
+
 
     def classify(self, signal):
-        """
-        Classifies a signal. Returns a label 1 or -1
-
-        signal : an m by n matrix
-                 Last row should be the sampling times
-        """
         if satisfies(self.primitive, SimpleModel(signal)):
             if self.left is None:
                 return 1
@@ -56,57 +33,17 @@ class DTree(object):
             else:
                 return self.right.classify(signal)
 
+
     def get_formula(self):
-        """
-        Obtains an STL formula equivalent to this tree
-        """
         left = self.primitive
         right = Formula(NOT, [self.primitive])
         if self.left is not None:
-            left = Formula(AND, [
-                self.primitive,
-                self.left.get_formula()
-            ])
+            left = Formula(AND, [self.primitive, self.left.get_formula()])
         if self.right is not None:
-            return Formula(OR, [left,
-                                Formula(AND, [
-                                    right,
-                                    self.right.get_formula()
-            ])])
+            return Formula(OR, [left, Formula(AND, [right, self.right.get_formula()])])
         else:
             return left
 
-    @property
-    def left(self):
-        return self._left
-
-    @left.setter
-    def left(self, value):
-        self._left = value
-
-    @property
-    def right(self):
-        return self._right
-
-    @right.setter
-    def right(self, value):
-        self._right = value
-
-    @property
-    def primitive(self):
-        return self._primitive
-
-    @primitive.setter
-    def primitive(self, value):
-        self._primitive = value
-
-    @property
-    def robustness(self):
-        return self._robustness
-
-    @robustness.setter
-    def robustness(self, value):
-        self._robustness = value
 
 
 
