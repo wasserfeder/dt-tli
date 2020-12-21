@@ -9,8 +9,10 @@ from scipy.io import loadmat, savemat
 import argparse
 import os
 import time
-from stl_prim import make_stl_primitives1
+from stl_prim import make_stl_primitives1, make_stl_primitives2
 from stl_inf import build_tree
+from stl_syntax import GT
+import matplotlib.pyplot as plt
 
 # ==============================================================================
 # ------------------------------------------------------------------------------
@@ -28,19 +30,67 @@ def learn_formula(filename, depth, numtree, inc):
 
     t0     = time.time()
     primitives1 = make_stl_primitives1(signals)
+    primitives2 = make_stl_primitives2(signals)
     rho_path    = [np.inf for signal in signals]
     dt = time.time() - t0
     print('Setup time:', dt)
 
 
     t0 = time.time()
-    tree = build_tree(signals, labels, timepoints, depth, primitives1, rho_path)
+    tree = build_tree(signals, labels, depth, primitives1, rho_path)
     formula = tree.get_formula()
     print('Formula:', formula)
+
+    missclassification_rate = 100 * evaluation(signals, labels, tree)
+    print("Misclassification Rate:", missclassification_rate)
 
     dt = time.time() - t0
     print('Runtime:', dt)
 
+##########
+    # datafig, axs = plt.subplots(2, 2)
+    # x_values = [85, 300]
+    # y_values = [35.32, 35.32]
+    # x_values1 = [85, 85]
+    # y_values1 = [0, 35.32]
+    # counter = 0
+    # for i in sat_indices:
+    #     if labels[i] > 0:
+    #         axs[0][0].plot(timepoints, signals[i][1])
+    #     else:
+    #         axs[0][1].plot(timepoints, signals[i][1])
+    #         counter = counter + 1
+    # axs[0][0].set_title("Correctly classified")
+    # axs[0][0].grid(True)
+    # axs[0][1].grid(True)
+    # axs[0, 0].set_ylabel('Signal value')
+    # axs[0][1].set_title('Misclassified Signals')
+    # for i in unsat_indices:
+    #     if labels[i] < 0:
+    #         axs[1][0].plot(timepoints, signals[i][1])
+    #     else:
+    #         axs[1][1].plot(timepoints, signals[i][1])
+    #         counter = counter + 1
+    # axs[1][0].set_ylabel('Signal value')
+    # axs[1][0].set_xlabel('Time')
+    # axs[1][0].grid(True)
+    # axs[1][1].grid(True)
+    # axs[1,1].set_xlabel('Time')
+    # p1, p2 = [85,35.32], [300, 35.32]
+    # x_values = [85, 300]
+    # y_values = [35.32, 35.32]
+    # axs[0][0].plot(x_values, y_values, color = 'red', linestyle = '--', linewidth = 5)
+    # axs[0][0].plot(x_values1, y_values1, color = 'red', linestyle = '--', linewidth = 5)
+    # axs[0][1].plot(x_values, y_values, color = 'red', linestyle = '--', linewidth = 5)
+    # axs[0][1].plot(x_values1, y_values1, color = 'red', linestyle = '--', linewidth = 5)
+    # axs[1][0].plot(x_values, y_values, color = 'red', linestyle = '--', linewidth = 5)
+    # axs[1][0].plot(x_values1, y_values1, color = 'red', linestyle = '--', linewidth = 5)
+    # axs[1][1].plot(x_values, y_values, color = 'red', linestyle = '--', linewidth = 5)
+    # axs[1][1].plot(x_values1, y_values1, color = 'red', linestyle = '--', linewidth = 5)
+    # plt.show(block = True)
+    # datafig.savefig('/home/erfan/Documents/University/Projects/Learning Specifications/dt-tli/Figures/misclassified.eps', format='eps')
+    # datafig.savefig('/home/erfan/Documents/University/Projects/Learning Specifications/dt-tli/Figures/misclassified.png', format='png')
+    # print("Other Misclassification Rate:", 100 * counter / float(len(labels)))
 
 
 
@@ -77,6 +127,10 @@ def learn_formula(filename, depth, numtree, inc):
     # print(np.count_nonzero(labels - test) / float(len(labels)))
 
 
+def evaluation(signals, labels, tree):
+    labels = np.array(labels)
+    predictions = np.array([tree.classify(signal) for signal in signals])
+    return np.count_nonzero(labels-predictions)/float(len(labels))
 
 
 

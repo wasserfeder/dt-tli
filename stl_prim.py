@@ -32,9 +32,9 @@ class STLFormula1(Formula):
 
     def __init__(self, live, index, op):
         if live:
-            Formula.__init__(self, ALWAYS, [Formula(EXPR, [STLSignal(index, op)])])
+            Formula.__init__(self, ALWAYS, [Formula(EXPR, [STLSignal(index, op)])], type=1)
         else:
-            Formula.__init__(self, ALWAYS, [Formula(EXPR, [STLSignal(index, op)])])
+            Formula.__init__(self, ALWAYS, [Formula(EXPR, [STLSignal(index, op)])], type=1)
 
     @property
     def index(self):
@@ -71,15 +71,19 @@ class STLFormula1(Formula):
         op = self.args[0].args[0].op
         self.args[0].args[0].op = LE if op == GT else GT
 
+    # def type(self):
+    #     self.type = 1
+    #     return self.type
+
 
 
 class STLFormula2(Formula):
 
     def __init__(self, live, index, op):
         if live:
-            Formula.__init__(self, ALWAYS, [Formula(EVENTUALLY, [Formula(EXPR, [STLSignal(index, op)])])])
+            Formula.__init__(self, ALWAYS, [Formula(EVENTUALLY, [Formula(EXPR, [STLSignal(index, op)])])], type=2)
         else:
-            Formula.__init__(self, EVENTUALLY, [Formula(ALWAYS, [Formula(EXPR, [STLSignal(index, op)])])])
+            Formula.__init__(self, EVENTUALLY, [Formula(ALWAYS, [Formula(EXPR, [STLSignal(index, op)])])], type=2)
 
     @property
     def index(self):
@@ -159,16 +163,8 @@ def make_stl_primitives1(signals):
 
 
 def make_stl_primitives2(signals):
-    alw_ev = [
-        STLFormula2(True, index, op)
-        for index, op
-        in itertools.product(range(len(signals.traces[0])), [LE])
-    ]
-    ev_alw = [
-        STLFormula2(False, index, op)
-        for index, op
-        in itertools.product(range(len(signals.traces[0])), [LE])
-    ]
+    alw_ev = [STLFormula2(True, index, op) for index, op in itertools.product(range(len(signals[0])), [LE])]
+    ev_alw = [STLFormula2(False, index, op) for index, op in itertools.product(range(len(signals[0])), [LE])]
     return alw_ev + ev_alw
 
 

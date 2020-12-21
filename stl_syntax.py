@@ -83,7 +83,7 @@ class Formula(object):
 
     """
 
-    def __init__(self, operator, args, bounds=None):
+    def __init__(self, operator, args, type=None, bounds=None):
         """
         operator : one of EXPR, AND, OR, NOT, ALWAYS, EVENTUALLY, NEXT
         args : either a list of Formulas or a Signal
@@ -99,6 +99,7 @@ class Formula(object):
         if bounds is None:
             bounds = [0, 0]
         self._bounds = bounds
+        self.type = type
 
     def _hexpr(self):
         return 0
@@ -162,6 +163,9 @@ class Formula(object):
     def bounds(self, value):
         self._bounds = value
 
+    def type(self):
+        return self.type
+
     def __str__(self):
         return {
             EXPR: "(%s)" % str(self.args[0]),
@@ -210,8 +214,23 @@ def robustness(formula, model, t=0):
     }[formula.op]()
 
 def satisfies(primitive, signal):
-    
-
+    rhos = []
+    if primitive.type == 1:
+        t0 = primitive.t0
+        t1 = primitive.t1
+        pi = primitive.pi
+        index = primitive.index
+        op = primitive.args[0].args[0].op
+        for t in range(t0, t1):
+            if op == GT:
+                rhos.append(signal[index][t] - pi)
+            else:
+                rhos.append(pi - signal[index][t])
+    rho = min(rhos)
+    if rho >= 0:
+        return True
+    else:
+        return False
 
 
 # parser
