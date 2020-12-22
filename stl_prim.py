@@ -1,16 +1,8 @@
-"""
-Module with depth 2 p-stl definitions
 
-Author: Francisco Penedo (franp@bu.edu)
-
-"""
 import stl_syntax
 from stl_syntax import Signal, Formula, LE, GT, ALWAYS, EVENTUALLY, EXPR
 import itertools
-# from bisect import bisect_left
 import numpy as np
-from pyparsing import Word, alphas, Suppress, Optional, Combine, nums, \
-    Literal, alphanums, Keyword, Group, ParseFatalException, MatchFirst
 
 
 class STLSignal(Signal):
@@ -71,9 +63,6 @@ class STLFormula1(Formula):
         op = self.args[0].args[0].op
         self.args[0].args[0].op = LE if op == GT else GT
 
-    # def type(self):
-    #     self.type = 1
-    #     return self.type
 
 
 
@@ -130,6 +119,7 @@ def set_stl1_pars(primitive, t0, t1, pi):
     primitive.t0 = t0
     primitive.t1 = t1
     primitive.pi = pi
+    return primitive
 
 
 def set_stl2_pars(primitive, t0, t1, t3, pi):
@@ -137,22 +127,8 @@ def set_stl2_pars(primitive, t0, t1, t3, pi):
     primitive.t1 = t1
     primitive.t3 = t3
     primitive.pi = pi
+    return primitive
 
-
-class SimpleModel(object):
-    def __init__(self, signals):
-        self._signals = signals
-        self._tinter = signals[-1][1] - signals[-1][0]
-        self._lsignals = len(signals[-1])
-
-    def getVarByName(self, indices):
-        tindex = min(
-            np.floor(indices[1]/self._tinter), self._lsignals - 1)
-        return self._signals[indices[0]][tindex]
-
-    @property
-    def tinter(self):
-        return self._tinter
 
 
 def make_stl_primitives1(signals):
@@ -166,32 +142,3 @@ def make_stl_primitives2(signals):
     alw_ev = [STLFormula2(True, index, op) for index, op in itertools.product(range(len(signals[0])), [LE])]
     ev_alw = [STLFormula2(False, index, op) for index, op in itertools.product(range(len(signals[0])), [LE])]
     return alw_ev + ev_alw
-
-
-
-
-def split_groups(l, group):
-    p = [x for x in l if group(x)]
-    n = [x for x in l if not group(x)]
-    return p, n
-
-
-# parser
-
-def expr_parser():
-    num = stl.num_parser()
-
-    T_UND = Suppress(Literal("_"))
-    T_LE = Literal("<=")
-    T_GR = Literal(">")
-
-    integer = Word(nums).setParseAction(lambda t: int(t[0]))
-    relation = (T_LE | T_GR).setParseAction(lambda t: LE if t[0] == "<=" else GT)
-    expr = Suppress(Word(alphas)) + T_UND + integer + relation + num
-    expr.setParseAction(lambda t: STLSignal(t[0], t[1], t[2]))
-
-    return expr
-
-def llt_parser():
-    stl_parser = MatchFirst(stl.stl_parser(expr_parser()))
-    return stl_parser

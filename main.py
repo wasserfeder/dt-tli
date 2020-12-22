@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 # ------------------------------------------------------------------------------
 # ==============================================================================
 
-def learn_formula(filename, depth, numtree, inc):
+def learn_formula(filename, depth, numtree, inc, opt_type):
     ######### DEBUGGING Optimization Problem ################
     mat_data        = loadmat(filename)
     timepoints      = mat_data['t'][0]
@@ -34,10 +34,11 @@ def learn_formula(filename, depth, numtree, inc):
     rho_path    = [np.inf for signal in signals]
     dt = time.time() - t0
     print('Setup time:', dt)
+    print('****************************************')
 
 
     t0 = time.time()
-    tree = build_tree(signals, labels, depth, primitives1, rho_path)
+    tree = build_tree(signals, labels, depth, primitives1, rho_path, opt_type)
     formula = tree.get_formula()
     print('Formula:', formula)
 
@@ -140,6 +141,8 @@ def evaluation(signals, labels, tree):
 
 def get_argparser():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('optimization', choices=['milp', 'pso'], nargs='?',
+                        default='pso', help='optimization type')
     parser.add_argument('-d', '--depth', metavar='D', type=int,
                         default=1, help='maximum depth of the decision tree')
     parser.add_argument('-n', '--numtree', metavar='N', type=int,
@@ -158,4 +161,4 @@ def get_path(f):
 
 if __name__ == '__main__':
     args = get_argparser().parse_args()
-    learn_formula(get_path(args.file), args.depth, args.numtree, args.inc)
+    learn_formula(get_path(args.file), args.depth, args.numtree, args.inc, args.optimization)

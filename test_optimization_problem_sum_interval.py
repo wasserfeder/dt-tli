@@ -35,6 +35,7 @@ class PrimitiveMILP(object):
         self.signals = signals
         self.labels = labels
         self.M = 100        # TODO: set proper value
+        self.M = 12
         self.horizon = len(signals[0][0])
         self.num_signals = len(signals)
         self.rho_path = rho_path
@@ -47,6 +48,7 @@ class PrimitiveMILP(object):
         # primitive's parameters
         self.threshold = self.model.addVar(name='threshold', lb=min_thresh,
                                             ub=max_thresh, vtype=GRB.CONTINUOUS)
+        # self.threshold.Start = 35.38
 
         self.intervals = [[None] * self.horizon for _ in range(self.horizon)]
         mutex_interval = 0

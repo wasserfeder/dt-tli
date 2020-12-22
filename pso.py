@@ -1,5 +1,6 @@
 import numpy as np
 import random
+from numpy import linalg as LA
 
 
 def compute_robustness(signal, pi, t0, t1, index, rho_path):
@@ -148,6 +149,13 @@ class PSO():
 
             print("error_best_g:", self.err_best_g)
             print("pos_best_g:", self.pos_best_g)
+
+            convergence = 0
+            for i in range(self.num_particles):
+                distance = self.pos_best_g - self.swarm[i].position
+                convergence = convergence + LA.norm(distance)
+            print("convergence:", convergence)
+
                 # if stop:
             for i in range(self.num_particles):
                 self.swarm[i].update_velocity(self.pos_best_g)

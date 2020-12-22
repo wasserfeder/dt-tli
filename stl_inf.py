@@ -47,14 +47,15 @@ class DTree(object):        # Decission tree recursive structure
 
 
 
-def build_tree(signals, labels, depth, primitives1, rho_path):
+def build_tree(signals, labels, depth, primitives1, rho_path, opt_type):
     # Check stopping conditions
     if depth <= 0:
         return None
 
-
-    primitive, impurity, robustnesses = find_best_primitive_milp(signals, labels, primitives1, rho_path)
-    # primitive, impurity, robustnesses = find_best_primitive_pso(signals, labels, primitives1, rho_path)
+    if opt_type == 'milp':
+        primitive, impurity, robustnesses = find_best_primitive_milp(signals, labels, primitives1, rho_path)
+    else:
+        primitive, impurity, robustnesses = find_best_primitive_pso(signals, labels, primitives1, rho_path)
     print('Primitive:', primitive)
     print('impurity:', impurity)
     tree = DTree(primitive, signals)
@@ -88,8 +89,8 @@ def build_tree(signals, labels, depth, primitives1, rho_path):
     print("number of violating signals:", len(unsat_signals))
 
     # Recursively build the tree
-    tree.left = build_tree(sat_signals, sat_labels, depth - 1, primitives1, sat_rho)
-    tree.right = build_tree(unsat_signals, unsat_labels, depth - 1, primitives1, unsat_rho)
+    tree.left = build_tree(sat_signals, sat_labels, depth - 1, primitives1, sat_rho, opt_type)
+    tree.right = build_tree(unsat_signals, unsat_labels, depth - 1, primitives1, unsat_rho, opt_type)
 
     return tree
 
