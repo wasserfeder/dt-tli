@@ -1,17 +1,17 @@
-"""
-Main inference module.
 
-Contains the decision tree construction and related definitions.
+# ==============================================================================
+# -- imports -------------------------------------------------------------------
+# ==============================================================================
 
-Author: Erfan Aasi (eaasi@bu.edu)
-
-"""
 from stl_syntax import Formula, AND, OR, NOT, satisfies, robustness, GT
 import numpy as np
 from test_optimization_problem_sum_interval import PrimitiveMILP
 from pso_test import get_bounds, run_pso_optimization
 from pso import compute_robustness, PSO
 
+# ==============================================================================
+# ------------------------------------------------------------------------------
+# ==============================================================================
 
 class DTree(object):        # Decission tree recursive structure
     def __init__(self, primitive, signals, left=None, right=None):

@@ -33,6 +33,10 @@ class STLFormula1(Formula):
         return self.args[0].args[0].index
 
     @property
+    def rel(self):
+        return self.args[0].args[0].op
+
+    @property
     def pi(self):
         return self.args[0].args[0].pi
 
@@ -77,6 +81,10 @@ class STLFormula2(Formula):
     @property
     def index(self):
         return self.args[0].args[0].args[0].index
+
+    @property
+    def rel(self):
+        return self.args[0].args[0].args[0].op
 
     @property
     def pi(self):

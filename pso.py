@@ -125,14 +125,17 @@ class PSO():
     def initialize_swarm(self):
         swarm = []
         pi_range = (self.bounds[1] - self.bounds[0]) / self.num_particles
-        v0_pi = random.uniform(-pi_range, pi_range)
-        v0_t0 = random.randint(-3,3)
-        v0_t1 = random.randint(-3,3)
+        # v0_pi = random.uniform(-pi_range, pi_range)
+        # v0_t0 = random.randint(-3,3)
+        # v0_t1 = random.randint(-3,3)
         for i in range(self.num_particles):
             pi_init = random.uniform(self.bounds[0], self.bounds[1])
             t0_init = int(np.floor(random.uniform(0, self.bounds[2]-1)))
             t1_init = int(np.round(random.uniform(t0_init + 1, self.bounds[2])))
             x0 = np.array([pi_init, t0_init, t1_init])
+	    v0_pi = random.uniform(-pi_range, pi_range)
+            v0_t0 = random.randint(-3,3)
+            v0_t1 = random.randint(-3,3)
             v0 = np.array([v0_pi, v0_t0, v0_t1])
             swarm.append(Particle(x0, v0, self.signals, self.labels, self.bounds, self.signal_dimension))
         return swarm
