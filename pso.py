@@ -10,16 +10,17 @@ def compute_robustness(signal, params, primitive, rho_path):
     t0 = int(params[1])
     t1 = int(params[2])
     index = primitive.index
-    if primitive.rel == GT:
-        for t in range(t0, t1+1):
-            rho.append(signal[index][t] - pi)
-    else:
-        for t in range(t0, t1+1):
-            rho.append(pi - signal[index][t])
-    if primitive.op == 5:
-        rho_primitive = np.min(rho)
-    else:
-        rho_primitive = np.max(rho)
+    if primitive.type == 1:
+        if primitive.rel == GT:
+            for t in range(t0, t1+1):
+                rho.append(signal[index][t] - pi)
+        else:
+            for t in range(t0, t1+1):
+                rho.append(pi - signal[index][t])
+        if primitive.op == 5:
+            rho_primitive = np.min(rho)
+        else:
+            rho_primitive = np.max(rho)
     return np.min([rho_primitive, rho_path])
 
 
@@ -125,7 +126,6 @@ class PSO():
         self.costFunc           = pso_costFunc
         self.bounds             = bounds
         self.primitive          = primitive
-        self.signal_dimension   = self.primitive.index
 
         self.err_best_g = None
         self.pos_best_g = []

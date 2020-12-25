@@ -57,6 +57,18 @@ def build_tree(signals, labels, depth, primitives, rho_path, opt_type):
         primitive, impurity, robustnesses = find_best_primitive_milp(signals, labels, primitives, rho_path)
     else:
         primitive, impurity, robustnesses = find_best_primitive_pso(signals, labels, primitives, rho_path)
+    counter = 0
+    reverse_counter = 0
+    for i in range(len(signals)):
+        if (robustnesses[i] >= 0 and labels[i] < 0) or (robustnesses[i] < 0 and labels[i] > 0):
+            counter = counter + 1
+        if (-robustnesses[i] >= 0 and labels[i] < 0) or (-robustnesses[i] < 0 and labels[i] > 0):
+            reverse_counter = reverse_counter + 1
+    if reverse_counter < counter:
+        primitive.reverse_rel()
+        primitive.reverse_op()
+        robustnesses = - robustnesses
+
     print('Primitive:', primitive)
     print('impurity:', impurity)
     tree = DTree(primitive, signals)
@@ -135,7 +147,7 @@ def find_best_primitive_pso(signals, labels, primitives, rho_path):
         else:
             primitive = set_stl2_pars(primitive, params)
 
-        rhos = [compute_robustness(signals[i], params, primitive, rho_path[i]) for i in range(len(signals))]
+        rhos = np.array([compute_robustness(signals[i], params, primitive, rho_path[i]) for i in range(len(signals))])
         opt_prims.append([primitive, impurity, rhos])
 
     return min(opt_prims, key=lambda x: x[1])
