@@ -6,6 +6,7 @@ import argparse
 from os import path
 import os
 from pso import pso_costFunc, PSO
+from stl_syntax import GT, LE
 
 
 def get_bounds(signals, signal_dimension=0):
@@ -23,9 +24,10 @@ def get_bounds(signals, signal_dimension=0):
 
 
 
-def run_pso_optimization(signals, labels, rho_path, signal_dimension=0):
+def run_pso_optimization(signals, labels, rho_path, primitive):
+    signal_dimension = primitive.index
     bounds = get_bounds(signals, signal_dimension)
-    particle_swarm = PSO(signals, labels, bounds, signal_dimension)
+    particle_swarm = PSO(signals, labels, bounds, primitive)
     params, impurity = particle_swarm.optimize_swarm(rho_path)
     return params, impurity
 

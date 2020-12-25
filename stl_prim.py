@@ -26,7 +26,8 @@ class STLFormula1(Formula):
         if live:
             Formula.__init__(self, ALWAYS, [Formula(EXPR, [STLSignal(index, op)])], type=1)
         else:
-            Formula.__init__(self, ALWAYS, [Formula(EXPR, [STLSignal(index, op)])], type=1)
+            # Formula.__init__(self, ALWAYS, [Formula(EXPR, [STLSignal(index, op)])], type=1)
+            Formula.__init__(self, EVENTUALLY, [Formula(EXPR, [STLSignal(index, op)])], type=1)
 
     @property
     def index(self):
@@ -123,26 +124,28 @@ class STLFormula2(Formula):
         self.args[0].args[0].args[0].op = LE if op == GT else GT
 
 
-def set_stl1_pars(primitive, t0, t1, pi):
-    primitive.t0 = t0
-    primitive.t1 = t1
-    primitive.pi = pi
+def set_stl1_pars(primitive, params):
+    primitive.pi = params[0]
+    primitive.t0 = int(params[1])
+    primitive.t1 = int(params[2])
     return primitive
 
 
-def set_stl2_pars(primitive, t0, t1, t3, pi):
-    primitive.t0 = t0
-    primitive.t1 = t1
-    primitive.t3 = t3
-    primitive.pi = pi
+def set_stl2_pars(primitive, params):
+    primitive.pi = params[0]
+    primitive.t0 = int(params[1])
+    primitive.t1 = int(params[2])
+    primitive.t3 = int(params[3])
     return primitive
 
 
 
 def make_stl_primitives1(signals):
     alw_gt = [STLFormula1(True, index, op) for index, op in itertools.product(range(len(signals[0])), [GT])]
-    alw_le = [STLFormula1(False, index, op) for index, op in itertools.product(range(len(signals[0])), [LE])]
-    return alw_gt + alw_le
+    alw_le = [STLFormula1(True, index, op) for index, op in itertools.product(range(len(signals[0])), [LE])]
+    eve_gt = [STLFormula1(False, index, op) for index, op in itertools.product(range(len(signals[0])), [GT])]
+    eve_le = [STLFormula1(False, index, op) for index, op in itertools.product(range(len(signals[0])), [LE])]
+    return alw_gt + alw_le + eve_gt + eve_le
 
 
 

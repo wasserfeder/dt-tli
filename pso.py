@@ -1,26 +1,38 @@
 import numpy as np
 import random
 from numpy import linalg as LA
+from stl_syntax import GT, LE
 
 
-def compute_robustness(signal, pi, t0, t1, index, rho_path):
+def compute_robustness(signal, params, primitive, rho_path):
     rho = []
-    for t in range(t0, t1+1):
-        rho.append(signal[index][t]-pi)
-    rho_primitive = np.min(rho)
+    pi = params[0]
+    t0 = int(params[1])
+    t1 = int(params[2])
+    index = primitive.index
+    if primitive.rel == GT:
+        for t in range(t0, t1+1):
+            rho.append(signal[index][t] - pi)
+    else:
+        for t in range(t0, t1+1):
+            rho.append(pi - signal[index][t])
+    if primitive.op == 5:
+        rho_primitive = np.min(rho)
+    else:
+        rho_primitive = np.max(rho)
     return np.min([rho_primitive, rho_path])
 
 
-def pso_costFunc(position, signals, labels, index, rho_path):
+def pso_costFunc(position, signals, labels, primitive, rho_path):
     [pi, t0, t1] = position
-    if t0 >= t1:
+    if t0 > t1:
         print("Wrong Input")
         return
     S_true, S_false = [], []
     S_true_pos, S_true_neg = [], []
     S_false_pos, S_false_neg = [], []
 
-    rhos = [compute_robustness(signals[i], pi, int(t0), int(t1), index, rho_path[i]) for i in range(len(signals))]
+    rhos = [compute_robustness(signals[i], position, primitive, rho_path[i]) for i in range(len(signals))]
     for i in range(len(signals)):
         if rhos[i] >= 0:
             S_true.append(i)
@@ -49,19 +61,19 @@ def pso_costFunc(position, signals, labels, index, rho_path):
 
 
 class Particle():
-    def __init__(self, x0, v0, signals, labels, bounds, index):
+    def __init__(self, x0, v0, signals, labels, bounds, primitive):
         self.position = x0
         self.velocity = v0
         self.signals = signals
         self.labels = labels
         self.bounds = bounds
-        self.index = index
+        self.primitive = primitive
         self.err_best_i = None
         self.pos_best_i = []
 
 
     def evaluate(self, costFunc, rho_path):
-        self.err_i = costFunc(self.position, self.signals, self.labels, self.index, rho_path)
+        self.err_i = costFunc(self.position, self.signals, self.labels, self.primitive, rho_path)
 
         if self.err_i < self.err_best_i or self.err_best_i is None:
             self.err_best_i = self.err_i
@@ -105,14 +117,15 @@ class Particle():
 
 
 class PSO():
-    def __init__(self, signals, labels, bounds, signal_dimension):
+    def __init__(self, signals, labels, bounds, primitive):
         self.k_max              = 50       # max iterations
         self.num_particles      = 15        # number of particles
         self.signals            = signals
         self.labels             = labels
         self.costFunc           = pso_costFunc
         self.bounds             = bounds
-        self.signal_dimension   = signal_dimension
+        self.primitive          = primitive
+        self.signal_dimension   = self.primitive.index
 
         self.err_best_g = None
         self.pos_best_g = []
@@ -125,19 +138,16 @@ class PSO():
     def initialize_swarm(self):
         swarm = []
         pi_range = (self.bounds[1] - self.bounds[0]) / self.num_particles
-        # v0_pi = random.uniform(-pi_range, pi_range)
-        # v0_t0 = random.randint(-3,3)
-        # v0_t1 = random.randint(-3,3)
         for i in range(self.num_particles):
             pi_init = random.uniform(self.bounds[0], self.bounds[1])
             t0_init = int(np.floor(random.uniform(0, self.bounds[2]-1)))
             t1_init = int(np.round(random.uniform(t0_init + 1, self.bounds[2])))
             x0 = np.array([pi_init, t0_init, t1_init])
-	    v0_pi = random.uniform(-pi_range, pi_range)
+            v0_pi = random.uniform(-pi_range, pi_range)
             v0_t0 = random.randint(-3,3)
             v0_t1 = random.randint(-3,3)
             v0 = np.array([v0_pi, v0_t0, v0_t1])
-            swarm.append(Particle(x0, v0, self.signals, self.labels, self.bounds, self.signal_dimension))
+            swarm.append(Particle(x0, v0, self.signals, self.labels, self.bounds, self.primitive))
         return swarm
 
 

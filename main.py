@@ -31,6 +31,8 @@ def learn_formula(filename, depth, numtree, inc, opt_type):
     t0     = time.time()
     primitives1 = make_stl_primitives1(signals)
     primitives2 = make_stl_primitives2(signals)
+    # primitives  = primitives1 + primitives2
+    primitives  = primitives1
     rho_path    = [np.inf for signal in signals]
     dt = time.time() - t0
     print('Setup time:', dt)
@@ -38,7 +40,7 @@ def learn_formula(filename, depth, numtree, inc, opt_type):
 
 
     t0 = time.time()
-    tree = build_tree(signals, labels, depth, primitives1, rho_path, opt_type)
+    tree = build_tree(signals, labels, depth, primitives, rho_path, opt_type)
     formula = tree.get_formula()
     print('Formula:', formula)
 

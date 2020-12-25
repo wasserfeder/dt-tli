@@ -8,6 +8,7 @@ import numpy as np
 from test_optimization_problem_sum_interval import PrimitiveMILP
 from pso_test import get_bounds, run_pso_optimization
 from pso import compute_robustness, PSO
+from stl_prim import set_stl1_pars
 
 # ==============================================================================
 # ------------------------------------------------------------------------------
@@ -47,15 +48,15 @@ class DTree(object):        # Decission tree recursive structure
 
 
 
-def build_tree(signals, labels, depth, primitives1, rho_path, opt_type):
+def build_tree(signals, labels, depth, primitives, rho_path, opt_type):
     # Check stopping conditions
     if depth <= 0:
         return None
 
     if opt_type == 'milp':
-        primitive, impurity, robustnesses = find_best_primitive_milp(signals, labels, primitives1, rho_path)
+        primitive, impurity, robustnesses = find_best_primitive_milp(signals, labels, primitives, rho_path)
     else:
-        primitive, impurity, robustnesses = find_best_primitive_pso(signals, labels, primitives1, rho_path)
+        primitive, impurity, robustnesses = find_best_primitive_pso(signals, labels, primitives, rho_path)
     print('Primitive:', primitive)
     print('impurity:', impurity)
     tree = DTree(primitive, signals)
@@ -89,8 +90,8 @@ def build_tree(signals, labels, depth, primitives1, rho_path, opt_type):
     print("number of violating signals:", len(unsat_signals))
 
     # Recursively build the tree
-    tree.left = build_tree(sat_signals, sat_labels, depth - 1, primitives1, sat_rho, opt_type)
-    tree.right = build_tree(unsat_signals, unsat_labels, depth - 1, primitives1, unsat_rho, opt_type)
+    tree.left = build_tree(sat_signals, sat_labels, depth - 1, primitives, sat_rho, opt_type)
+    tree.right = build_tree(unsat_signals, unsat_labels, depth - 1, primitives, unsat_rho, opt_type)
 
     return tree
 
@@ -98,9 +99,9 @@ def build_tree(signals, labels, depth, primitives1, rho_path, opt_type):
 
 
 
-def find_best_primitive_milp(signals, labels, primitives1, rho_path):
+def find_best_primitive_milp(signals, labels, primitives, rho_path):
     opt_prims = []
-    for primitive in primitives1:
+    for primitive in primitives:
         primitive = primitive.copy()
         if primitive.args[0].args[0].op == GT:
             milp = PrimitiveMILP(signals, labels, None, rho_path)
@@ -123,27 +124,18 @@ def find_best_primitive_milp(signals, labels, primitives1, rho_path):
 
 
 
-def find_best_primitive_pso(signals, labels, primitives1, rho_path):
+def find_best_primitive_pso(signals, labels, primitives, rho_path):
     opt_prims = []
-    for primitive in primitives1:
+    for primitive in primitives:
         primitive = primitive.copy()
         print("candidate primitive:", primitive)
-        signal_dimension = primitive.args[0].args[0].index
-        if primitive.args[0].args[0].op == GT:
-            params, impurity = run_pso_optimization(signals, labels, rho_path, signal_dimension)
+        params, impurity = run_pso_optimization(signals, labels, rho_path, primitive)
+        if primitive.type == 1:
+            primitive = set_stl1_pars(primitive, params)
         else:
-            params, impurity = run_pso_optimization(-signals, labels, rho_path, signal_dimension)
+            primitive = set_stl2_pars(primitive, params)
 
-        if primitive.args[0].args[0].op == GT:
-            primitive.pi = params[0]
-        else:
-            primitive.pi = - params[0]
-        primitive.t0 = int(params[1])
-        primitive.t1 = int(params[2])
-        if primitive.args[0].args[0].op == GT:
-            rhos = [compute_robustness(signals[i], params[0], int(params[1]), int(params[2]), signal_dimension, rho_path[i]) for i in range(len(signals))]
-        else:
-            rhos = [compute_robustness(-signals[i], params[0], int(params[1]), int(params[2]), signal_dimension, rho_path[i]) for i in range(len(signals))]
+        rhos = [compute_robustness(signals[i], params, primitive, rho_path[i]) for i in range(len(signals))]
         opt_prims.append([primitive, impurity, rhos])
 
     return min(opt_prims, key=lambda x: x[1])
