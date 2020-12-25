@@ -4,12 +4,12 @@ Module with STL definitions
 Author: Francisco Penedo (franp@bu.edu)
 
 """
-
 import operator
 import copy
 import numpy as np
 from pyparsing import Word, Suppress, Optional, Combine, nums, \
     Literal, Forward, delimitedList, alphanums, Keyword, Group
+
 
 # Operator constants
 EXPR = 0
@@ -214,26 +214,47 @@ def robustness(formula, model, t=0):
     }[formula.op]()
 
 def satisfies(primitive, signal):
-    rhos = []
+    rho = []
+    pi = primitive.pi
+    t0 = int(primitive.t0)
+    t1 = int(primitive.t1)
+    index = primitive.index
     if primitive.type == 1:
-        t0 = primitive.t0
-        t1 = primitive.t1
-        pi = primitive.pi
-        index = primitive.index
-        op = primitive.args[0].args[0].op
-        for t in range(t0, t1):
-            if op == GT:
-                rhos.append(signal[index][t] - pi)
+        if primitive.rel == GT:
+            for t in range(t0, t1+1):
+                rho.append(signal[index][t] - pi)
+        else:
+            for t in range(t0, t1+1):
+                rho.append(pi - signal[index][t])
+        if primitive.op == 5:
+            rho_primitive = np.min(rho)
+        else:
+            rho_primitive = np.max(rho)
+    else:
+        t3 = int(primitive.t3)
+        for t in range(t0, t1+1):
+            rho_inner = []
+            if primitive.rel == GT:
+                for tk in range(t, t+t3):
+                    rho_inner.append(signal[index][tk] - pi)
             else:
-                rhos.append(pi - signal[index][t])
-    rho = min(rhos)
-    if rho >= 0:
+                for tk in range(t, t+t3):
+                    rho_inner.append(pi - signal[index][tk])
+            if primitive.op == 5:
+                rho.append(np.max(rho_inner))
+            else:
+                rho.append(np.min(rho_inner))
+        if primitive.op == 5:
+            rho_primitive = np.min(rho)
+        else:
+            rho_primitive = np.max(rho)
+    if rho_primitive >= 0:
         return True
     else:
         return False
 
 
-# parser
+
 
 
 def num_parser():

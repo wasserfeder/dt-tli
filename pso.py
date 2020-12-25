@@ -21,14 +21,39 @@ def compute_robustness(signal, params, primitive, rho_path):
             rho_primitive = np.min(rho)
         else:
             rho_primitive = np.max(rho)
+    else:
+        t3 = int(params[3])
+        for t in range(t0, t1+1):
+            rho_inner = []
+            if primitive.rel == GT:
+                for tk in range(t, t+t3):
+                    rho_inner.append(signal[index][tk] - pi)
+            else:
+                for tk in range(t, t+t3):
+                    rho_inner.append(pi - signal[index][tk])
+            if primitive.op == 5:
+                rho.append(np.max(rho_inner))
+            else:
+                rho.append(np.min(rho_inner))
+        if primitive.op == 5:
+            rho_primitive = np.min(rho)
+        else:
+            rho_primitive = np.max(rho)
     return np.min([rho_primitive, rho_path])
 
 
 def pso_costFunc(position, signals, labels, primitive, rho_path):
-    [pi, t0, t1] = position
-    if t0 > t1:
-        print("Wrong Input")
-        return
+    if primitive.type == 1:
+        [pi, t0, t1] = position
+        if t0 > t1:
+            print("Wrong Input")
+            return
+    else:
+        [pi, t0, t1, t3] = position
+        signal_horizon = len(signals[0][0]) - 1
+        if t0 > t1 or t1+ t3 > signal_horizon:
+            print("Wrong Input")
+            return
     S_true, S_false = [], []
     S_true_pos, S_true_neg = [], []
     S_false_pos, S_false_neg = [], []
@@ -98,6 +123,9 @@ class Particle():
         self.velocity[1] = min(self.velocity[1], 5)
         self.velocity[2] = max(self.velocity[2], -5)
         self.velocity[2] = min(self.velocity[2], 5)
+        if self.primitive.type == 2:
+            self.velocity[3] = max(self.velocity[3], 4)
+            self.velocity[3] = min(self.velocity[3], -4)
 
 
     def update_position(self):
@@ -106,20 +134,29 @@ class Particle():
         self.position[2] = int(np.round(self.position[2]))+1
         self.position[0] = max(self.position[0], self.bounds[0])
         self.position[0] = min(self.position[0], self.bounds[1])
-        self.position[1] = max(self.position[1], 0)
-        self.position[1] = min(self.position[1], self.bounds[2]-1)
-        self.position[2] = max(self.position[2], 1)
-        self.position[2] = min(self.position[2], self.bounds[2])
-        if self.position[1] > self.position[2]:
-            temp = self.position[1]
-            self.position[1] = self.position[2]
-            self.position[2] = temp
-        ### bounding
+        if self.primitive.type == 1:
+            self.position[1] = max(self.position[1], 0)
+            self.position[1] = min(self.position[1], self.bounds[2]-1)
+            self.position[2] = max(self.position[2], 1)
+            self.position[2] = min(self.position[2], self.bounds[2])
+            if self.position[1] > self.position[2]:
+                temp = self.position[1]
+                self.position[1] = self.position[2]
+                self.position[2] = temp
+        else:
+            self.position[3] = int(np.round(self.position[3]))+1
+            self.position[1] = max(self.position[1], 0)
+            self.position[2] = max(self.position[2], 1)
+            self.position[3] = max(self.position[3], 1)
+            self.position[3] = min(self.position[3], self.bounds[2]-1)
+            self.position[2] = min(self.position[2], self.bounds[2] - self.position[3])
+            self.position[1] = min(self.position[1], self.position[2] - 1)
 
 
 class PSO():
     def __init__(self, signals, labels, bounds, primitive):
-        self.k_max              = 50       # max iterations
+        # self.k_max              = 50       # max iterations
+        self.k_max              = 15       # max iterations
         self.num_particles      = 15        # number of particles
         self.signals            = signals
         self.labels             = labels
@@ -138,16 +175,31 @@ class PSO():
     def initialize_swarm(self):
         swarm = []
         pi_range = (self.bounds[1] - self.bounds[0]) / self.num_particles
-        for i in range(self.num_particles):
-            pi_init = random.uniform(self.bounds[0], self.bounds[1])
-            t0_init = int(np.floor(random.uniform(0, self.bounds[2]-1)))
-            t1_init = int(np.round(random.uniform(t0_init + 1, self.bounds[2])))
-            x0 = np.array([pi_init, t0_init, t1_init])
-            v0_pi = random.uniform(-pi_range, pi_range)
-            v0_t0 = random.randint(-3,3)
-            v0_t1 = random.randint(-3,3)
-            v0 = np.array([v0_pi, v0_t0, v0_t1])
-            swarm.append(Particle(x0, v0, self.signals, self.labels, self.bounds, self.primitive))
+        if self.primitive.type == 1:
+            for i in range(self.num_particles):
+                pi_init = random.uniform(self.bounds[0], self.bounds[1])
+                t0_init = int(np.floor(random.uniform(0, self.bounds[2]-1)))
+                t1_init = int(np.round(random.uniform(t0_init + 1, self.bounds[2])))
+                x0 = np.array([pi_init, t0_init, t1_init])
+                v0_pi = random.uniform(-pi_range, pi_range)
+                v0_t0 = random.randint(-3,3)
+                v0_t1 = random.randint(-3,3)
+                v0 = np.array([v0_pi, v0_t0, v0_t1])
+                swarm.append(Particle(x0, v0, self.signals, self.labels, self.bounds, self.primitive))
+        else:
+            for i in range(self.num_particles):
+                pi_init = random.uniform(self.bounds[0], self.bounds[1])
+                t3_init = int(np.floor(random.uniform(1, self.bounds[2]-1)))
+                t1_up = self.bounds[2] - t3_init
+                t0_init = int(np.floor(random.uniform(0, t1_up-1)))
+                t1_init = int(np.round(random.uniform(t0_init + 1, t1_up)))
+                x0 = np.array([pi_init, t0_init, t1_init, t3_init])
+                v0_pi = random.uniform(-pi_range, pi_range)
+                v0_t0 = random.randint(-3,3)
+                v0_t1 = random.randint(-3,3)
+                v0_t3 = random.randint(-2, 2)
+                v0 = np.array([v0_pi, v0_t0, v0_t1, v0_t3])
+                swarm.append(Particle(x0, v0, self.signals, self.labels, self.bounds, self.primitive))
         return swarm
 
 

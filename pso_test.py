@@ -28,6 +28,7 @@ def run_pso_optimization(signals, labels, rho_path, primitive):
     signal_dimension = primitive.index
     bounds = get_bounds(signals, signal_dimension)
     particle_swarm = PSO(signals, labels, bounds, primitive)
+    # raise RuntimeError('Failed to open database')
     params, impurity = particle_swarm.optimize_swarm(rho_path)
     return params, impurity
 

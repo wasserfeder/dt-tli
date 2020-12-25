@@ -8,7 +8,7 @@ import numpy as np
 from test_optimization_problem_sum_interval import PrimitiveMILP
 from pso_test import get_bounds, run_pso_optimization
 from pso import compute_robustness, PSO
-from stl_prim import set_stl1_pars
+from stl_prim import set_stl1_pars, set_stl2_pars
 
 # ==============================================================================
 # ------------------------------------------------------------------------------

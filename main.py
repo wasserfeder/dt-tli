@@ -27,12 +27,10 @@ def learn_formula(filename, depth, numtree, inc, opt_type):
     print(signals.shape)
     print('Number of signals:', len(signals))
     print('Time points:', len(timepoints))
-
     t0     = time.time()
     primitives1 = make_stl_primitives1(signals)
     primitives2 = make_stl_primitives2(signals)
-    # primitives  = primitives1 + primitives2
-    primitives  = primitives2
+    primitives  = primitives1 + primitives2
     rho_path    = [np.inf for signal in signals]
     dt = time.time() - t0
     print('Setup time:', dt)
