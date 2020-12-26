@@ -80,3 +80,50 @@ if __name__ == '__main__':
     mat_file    = get_path(args.file)
     mat_data    = loadmat(mat_file)
     draw_results(mat_data)
+
+
+
+
+        # datafig, axs = plt.subplots(2, 2)
+        # x_values = [85, 300]
+        # y_values = [35.32, 35.32]
+        # x_values1 = [85, 85]
+        # y_values1 = [0, 35.32]
+        # counter = 0
+        # for i in sat_indices:
+        #     if labels[i] > 0:
+        #         axs[0][0].plot(timepoints, signals[i][1])
+        #     else:
+        #         axs[0][1].plot(timepoints, signals[i][1])
+        #         counter = counter + 1
+        # axs[0][0].set_title("Correctly classified")
+        # axs[0][0].grid(True)
+        # axs[0][1].grid(True)
+        # axs[0, 0].set_ylabel('Signal value')
+        # axs[0][1].set_title('Misclassified Signals')
+        # for i in unsat_indices:
+        #     if labels[i] < 0:
+        #         axs[1][0].plot(timepoints, signals[i][1])
+        #     else:
+        #         axs[1][1].plot(timepoints, signals[i][1])
+        #         counter = counter + 1
+        # axs[1][0].set_ylabel('Signal value')
+        # axs[1][0].set_xlabel('Time')
+        # axs[1][0].grid(True)
+        # axs[1][1].grid(True)
+        # axs[1,1].set_xlabel('Time')
+        # p1, p2 = [85,35.32], [300, 35.32]
+        # x_values = [85, 300]
+        # y_values = [35.32, 35.32]
+        # axs[0][0].plot(x_values, y_values, color = 'red', linestyle = '--', linewidth = 5)
+        # axs[0][0].plot(x_values1, y_values1, color = 'red', linestyle = '--', linewidth = 5)
+        # axs[0][1].plot(x_values, y_values, color = 'red', linestyle = '--', linewidth = 5)
+        # axs[0][1].plot(x_values1, y_values1, color = 'red', linestyle = '--', linewidth = 5)
+        # axs[1][0].plot(x_values, y_values, color = 'red', linestyle = '--', linewidth = 5)
+        # axs[1][0].plot(x_values1, y_values1, color = 'red', linestyle = '--', linewidth = 5)
+        # axs[1][1].plot(x_values, y_values, color = 'red', linestyle = '--', linewidth = 5)
+        # axs[1][1].plot(x_values1, y_values1, color = 'red', linestyle = '--', linewidth = 5)
+        # plt.show(block = True)
+        # datafig.savefig('/home/erfan/Documents/University/Projects/Learning Specifications/dt-tli/Figures/misclassified.eps', format='eps')
+        # datafig.savefig('/home/erfan/Documents/University/Projects/Learning Specifications/dt-tli/Figures/misclassified.png', format='png')
+        # print("Other Misclassification Rate:", 100 * counter / float(len(labels)))

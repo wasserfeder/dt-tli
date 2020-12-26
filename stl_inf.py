@@ -48,7 +48,7 @@ class DTree(object):        # Decission tree recursive structure
 
 
 
-def build_tree(signals, labels, depth, primitives, rho_path, opt_type):
+def build_tree(signals, labels, depth, primitives, rho_path, opt_type, D_t=None):
     # Check stopping conditions
     if depth <= 0:
         return None
