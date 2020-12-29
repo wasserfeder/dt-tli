@@ -48,7 +48,6 @@ class PrimitiveMILP(object):
         # primitive's parameters
         self.threshold = self.model.addVar(name='threshold', lb=min_thresh,
                                             ub=max_thresh, vtype=GRB.CONTINUOUS)
-        # self.threshold.Start = 35.38
 
         self.intervals = [[None] * self.horizon for _ in range(self.horizon)]
         mutex_interval = 0
@@ -279,8 +278,8 @@ def test1():
 
     t0 = time.time()
     milp = PrimitiveMILP(signals, labels, None, rho_path)
-    # milp.impurity_optimization(signal_dimension=0) # x-axis
-    milp.impurity_optimization(signal_dimension=1) # y-axis
+    milp.impurity_optimization(signal_dimension=0) # x-axis
+    # milp.impurity_optimization(signal_dimension=1) # y-axis
 
     dt = time.time() - t0
     print('Setup time:', dt)
