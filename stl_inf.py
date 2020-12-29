@@ -46,8 +46,9 @@ class DTree(object):        # Decission tree recursive structure
             return left
 
 
-
-
+# ==============================================================================
+# ------------------------------------------------------------------------------
+# ==============================================================================
 def build_tree(signals, labels, depth, primitives, rho_path, opt_type, D_t=None):
     # Check stopping conditions
     if depth <= 0:
@@ -69,6 +70,7 @@ def build_tree(signals, labels, depth, primitives, rho_path, opt_type, D_t=None)
         primitive.reverse_op()
         robustnesses = - robustnesses
 
+    print('*********************************************')
     print('Primitive:', primitive)
     print('impurity:', impurity)
     tree = DTree(primitive, signals)
@@ -115,19 +117,22 @@ def find_best_primitive_milp(signals, labels, primitives, rho_path):
     opt_prims = []
     for primitive in primitives:
         primitive = primitive.copy()
-        if primitive.args[0].args[0].op == GT:
-            milp = PrimitiveMILP(signals, labels, None, rho_path)
+        print('*********************************************')
+        print("candidate primitive:", primitive)
+        if primitive.rel == GT:
+            milp = PrimitiveMILP(signals, labels, None, rho_path, primitive.index)
         else:
-            milp = PrimitiveMILP(-signals, labels, None, rho_path)
+            milp = PrimitiveMILP(-signals, labels, None, rho_path, primitive.index)
 
-        milp.impurity_optimization(signal_dimension = primitive.args[0].args[0].index)
+        milp.impurity_optimization(signal_dimension = primitive.index)
         milp.model.optimize()
-        if primitive.args[0].args[0].op == GT:
-            primitive.pi = milp.get_threshold()
+        pi = milp.get_threshold()
+        [t0, t1] = milp.get_interval()
+        if primitive.rel == GT:
+            params = [pi, t0, t1]
         else:
-            primitive.pi = - milp.get_threshold()
-        primitive.t0 = int(milp.get_interval()[0])
-        primitive.t1 = int(milp.get_interval()[1])
+            params = [-pi, t0, t1]
+        primitive = set_stl1_pars(primitive, params)
         rhos = milp.get_robustnesses()
         opt_prims.append([primitive, milp.model.objVal, rhos])
 
@@ -140,6 +145,7 @@ def find_best_primitive_pso(signals, labels, primitives, rho_path):
     opt_prims = []
     for primitive in primitives:
         primitive = primitive.copy()
+        print('*********************************************')
         print("candidate primitive:", primitive)
         params, impurity = run_pso_optimization(signals, labels, rho_path, primitive)
         if primitive.type == 1:

@@ -23,7 +23,7 @@ class PrimitiveMILP(object):
     '''TODO:
     '''
 
-    def __init__(self, signals, labels, ranges, rho_path, model=None):
+    def __init__(self, signals, labels, ranges, rho_path, signal_dimension, model=None):
         '''TODO:
         '''
         if model is not None:
@@ -34,14 +34,23 @@ class PrimitiveMILP(object):
         self.variables = {}
         self.signals = signals
         self.labels = labels
-        self.M = 100        # TODO: set proper value
-        self.M = 12
         self.horizon = len(signals[0][0])
         self.num_signals = len(signals)
         self.rho_path = rho_path
+        self.signal_dimension = signal_dimension
 
-        min_thresh = np.min(signals)
-        max_thresh = np.max(signals)
+        min_signals, max_signals = [], []
+        for i in range(len(self.signals)):
+            min_signals.append(min(signals[i][self.signal_dimension]))
+            max_signals.append(max(signals[i][self.signal_dimension]))
+        min_thresh = min(min_signals)
+        max_thresh = max(max_signals)
+
+        # min_thresh = np.min(signals)
+        # max_thresh = np.max(signals)
+        # self.M = 100        # For Naval
+        # self.M = 12         # For SimpleDS
+        self.M = 100
 
         self.lookuptable = traces_robustness_order1_lkt(self.signals)
 
@@ -218,7 +227,7 @@ class PrimitiveMILP(object):
 
     def get_robustnesses(self):
         if self.model.status == GRB.OPTIMAL:
-            return [rho.X for rho in self.primitive_variables]
+            return np.array([rho.X for rho in self.primitive_variables])
         else:
             raise RuntimeError('The model needs to be solved first!')
 
