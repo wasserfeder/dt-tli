@@ -168,9 +168,8 @@ class PSO():
         self.pos_best_g = []
 
         # Initialize the swarm
-        if True:
-            self.swarm = self.initialize_swarm()
-            return None
+        self.swarm = self.initialize_swarm()
+
 
     def initialize_swarm(self):
         swarm = []

@@ -50,7 +50,7 @@ class PrimitiveMILP(object):
         # max_thresh = np.max(signals)
         # self.M = 100        # For Naval
         # self.M = 12         # For SimpleDS
-        self.M = 100
+        self.M = 30           # For SimpleDS2
 
         self.lookuptable = traces_robustness_order1_lkt(self.signals)
 
