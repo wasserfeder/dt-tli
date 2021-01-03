@@ -19,13 +19,15 @@ import matplotlib.pyplot as plt
 # ------------------------------------------------------------------------------
 # ==============================================================================
 
-def build_single_tree(signals, labels, rho_path, depth, primitives, opt_type):
-    indices = [i for i in range(len(signals))]
-    tree = build_tree(signals, labels, rho_path, indices, depth, primitives, opt_type)
+def build_single_tree(signals, labels, rho_path, depth, primitives, opt_type, D_t):
+    tree = build_tree(signals, labels, rho_path, depth, primitives, opt_type, D_t)
     formula = tree.get_formula()
     print('Formula:', formula)
-    missclassification_rate = 100 * evaluation(signals, labels, tree)
-    print("Misclassification Rate:", missclassification_rate)
+    rhos = [tree.tree_robustness(signal, np.inf) for signal in signals]
+    label_MSR = 100 * label_evaluation(signals, labels, tree)
+    robustness_MSR = 100 * robustness_evaluation(labels, rhos)
+    print("Label_based MSR:", label_MSR)
+    print("Robustness_based MSR:", robustness_MSR)
 
 
 # ==============================================================================
@@ -34,23 +36,23 @@ def build_single_tree(signals, labels, rho_path, depth, primitives, opt_type):
 
 def build_boosted_trees(signals, labels, rho_path, depth, primitives, opt_type,
                         D_t, numtree):
-    rho_max             = 10000
-    D_t                 = np.true_divide(np.ones(len(signals)), len(signals))
+    # rho_max             = 10000
     trees, formulas     = [None] * numtree, [None] * numtree
     weights, epsilon    = [0] * numtree, [0] * numtree
 
     for t in range(numtree):
-        indices = [i for i in range(len(signals))]
-        trees[t] = build_tree(signals, labels, rho_path, indices, depth, primitives,
+        trees[t] = build_tree(signals, labels, rho_path, depth, primitives,
                               opt_type, D_t)
         formulas[t] = trees[t].get_formula()
-        robustnesses = [robustness(formulas[t], model) for model in models]     #### TODO
-        robust_err = 1 - np.true_divide(np.abs(robustnesses), rho_max)
-        epsilon[t] = sum(np.multiply(D_t, robust_err))
+        rhos = [trees[t].tree_robustness(signal, np.inf) for signal in signals]
+        pred_labels = np.array([trees[t].classify(signal) for signal in signals])
+        for i in range(len(signals)):
+            if labels[i] != pred_labels[i]:
+                epsilon[t] = epsilon[t] + D_t[i]
         weights[t] = 0.5 * np.log(1/epsilon[t] - 1)
-        pred_labels = [trees[t].classify(signal) for signal in signals]
         D_t = np.multiply(D_t, np.exp(np.multiply(-weights[t], np.multiply(labels, pred_labels))))
         D_t = np.true_divide(D_t, sum(D_t))
+    print("tree weights:", weights)
     missclassification_rate = 100 * bdt_evaluation(signals, labels, trees, weights, numtree)
     print("Misclassification Rate:", missclassification_rate)
     # fomrula = bdt_get_formula(formulas, weights)
@@ -76,13 +78,14 @@ def learn_formula(filename, depth, numtree, inc, opt_type):
     primitives2 = make_stl_primitives2(signals)
     primitives  = primitives1
     rho_path    = [np.inf for signal in signals]
+    D_t                 = np.true_divide(np.ones(len(signals)), len(signals))
     dt = time.time() - t0
     print('Setup time:', dt)
 
     t0 = time.time()
     if numtree == 1:
         build_single_tree(signals, labels, rho_path, depth, primitives,
-                          opt_type)
+                          opt_type, D_t)
 
     else:
         build_boosted_trees(signals, labels, rho_path, depth, primitives,
@@ -96,16 +99,23 @@ def learn_formula(filename, depth, numtree, inc, opt_type):
 # ---- Evaluation --------------------------------------------------------------
 # ==============================================================================
 # Single Tree Evaluation
-def evaluation(signals, labels, tree):
+def label_evaluation(signals, labels, tree):
     labels = np.array(labels)
     predictions = np.array([tree.classify(signal) for signal in signals])
     return np.count_nonzero(labels-predictions)/float(len(labels))
 
+def robustness_evaluation(labels, rhos):
+    counter = 0
+    for i in range(len(labels)):
+        if (labels[i] > 0 and rhos[i] < 0) or (labels[i]<0 and rhos[i]>=0):
+            counter = counter + 1
+    return counter/float(len(labels))
+
 # Boosted Decision Tree Classification
 def bdt_evaluation(signals, labels, trees, weights, numtree):
-    test = np.zeros(numtree)
+    test = np.zeros(len(signals))
     for i in range(numtree):
-        test = test + np.multiply(weights[i], np.array([trees[i].classify(signal) for signal in signals]))
+        test = test + weights[i] * np.array([trees[i].classify(signal) for signal in signals])
 
     test = np.sign(test)
     return np.count_nonzero(labels - test) / float(len(labels))

@@ -34,6 +34,25 @@ class DTree(object):        # Decission tree recursive structure
             else:
                 return self.right.classify(signal)
 
+    def tree_robustness(self, signal, rho_path):
+        pi = self.primitive.pi
+        t0 = self.primitive.t0
+        t1 = self.primitive.t1
+        if self.primitive.type == 1:
+            params = [pi, t0 ,t1]
+        else:
+            params = [pi, t0 ,t1, self.primitive.t3]
+        rho = compute_robustness(signal, params, self.primitive, rho_path)
+        if self.left is None:
+            return rho
+        elif rho >= 0 and self.left is not None:
+            return self.left.tree_robustness(signal, rho)
+        else:
+            return self.right.tree_robustness(signal, -rho)
+
+
+
+
 
     def get_formula(self):
         left = self.primitive
@@ -49,15 +68,15 @@ class DTree(object):        # Decission tree recursive structure
 # ==============================================================================
 # ------------------------------------------------------------------------------
 # ==============================================================================
-def build_tree(signals, labels, rho_path, indices, depth, primitives, opt_type, D_t=None):
+def build_tree(signals, labels, rho_path, depth, primitives, opt_type, D_t=None):
     # Check stopping conditions
     if depth <= 0:
         return None
 
     if opt_type == 'milp':
-        primitive, impurity, robustnesses = find_best_primitive_milp(signals, labels, rho_path, primitives)
+        primitive, impurity, robustnesses = find_best_primitive_milp(signals, labels, rho_path, D_t, primitives)
     else:
-        primitive, impurity, robustnesses = find_best_primitive_pso(signals, labels, rho_path, primitives)
+        primitive, impurity, robustnesses = find_best_primitive_pso(signals, labels, rho_path, D_t, primitives)
     counter = 0
     reverse_counter = 0
     for i in range(len(signals)):
@@ -78,10 +97,12 @@ def build_tree(signals, labels, rho_path, indices, depth, primitives, opt_type, 
     sat_indices = []
     sat_rho = []
     sat_labels = []
+    sat_weights = []
     unsat_signals = []
     unsat_indices = []
     unsat_rho = []
     unsat_labels = []
+    unsat_weights = []
 
     for i in range(len(signals)):
         if robustnesses[i] >= 0:
@@ -89,11 +110,13 @@ def build_tree(signals, labels, rho_path, indices, depth, primitives, opt_type, 
             sat_rho.append(robustnesses[i])
             sat_labels.append(labels[i])
             sat_indices.append(i)
+            sat_weights.append(D_t[i])
         else:
             unsat_signals.append(signals[i])
             unsat_rho.append(-robustnesses[i])
             unsat_labels.append(labels[i])
             unsat_indices.append(i)
+            unsat_weights.append(D_t[i])
     sat_signals = np.array(sat_signals)
     unsat_signals = np.array(unsat_signals)
 
@@ -104,8 +127,8 @@ def build_tree(signals, labels, rho_path, indices, depth, primitives, opt_type, 
     print("number of violating signals:", len(unsat_signals))
 
     # Recursively build the tree
-    tree.left = build_tree(sat_signals, sat_labels, sat_rho, indices, depth - 1, primitives, opt_type)
-    tree.right = build_tree(unsat_signals, unsat_labels, unsat_rho, indices, depth - 1, primitives, opt_type)
+    tree.left = build_tree(sat_signals, sat_labels, sat_rho, depth - 1, primitives, opt_type, sat_weights)
+    tree.right = build_tree(unsat_signals, unsat_labels, unsat_rho, depth - 1, primitives, opt_type, unsat_weights)
 
     return tree
 
@@ -115,7 +138,7 @@ def build_tree(signals, labels, rho_path, indices, depth, primitives, opt_type, 
 # ------------------------------------------------------------------------------
 # ==============================================================================
 
-def find_best_primitive_milp(signals, labels, rho_path, primitives):
+def find_best_primitive_milp(signals, labels, rho_path, D_t, primitives):
     opt_prims = []
     for primitive in primitives:
         primitive = primitive.copy()
@@ -145,13 +168,13 @@ def find_best_primitive_milp(signals, labels, rho_path, primitives):
 # ------------------------------------------------------------------------------
 # ==============================================================================
 
-def find_best_primitive_pso(signals, labels, rho_path, primitives):
+def find_best_primitive_pso(signals, labels, rho_path, D_t, primitives):
     opt_prims = []
     for primitive in primitives:
         primitive = primitive.copy()
         print('*********************************************')
         print("candidate primitive:", primitive)
-        params, impurity = run_pso_optimization(signals, labels, rho_path, primitive)
+        params, impurity = run_pso_optimization(signals, labels, rho_path, D_t, primitive)
         if primitive.type == 1:
             primitive = set_stl1_pars(primitive, params)
         else:

@@ -42,7 +42,7 @@ def compute_robustness(signal, params, primitive, rho_path):
     return np.min([rho_primitive, rho_path])
 
 
-def pso_costFunc(position, signals, labels, primitive, rho_path):
+def pso_costFunc(position, signals, labels, primitive, rho_path, D_t):
     if primitive.type == 1:
         [pi, t0, t1] = position
         if t0 > t1:
@@ -67,15 +67,15 @@ def pso_costFunc(position, signals, labels, primitive, rho_path):
 
     for i in S_true:
         if labels[i] > 0:
-            S_true_pos.append(rhos[i])
+            S_true_pos.append(D_t[i] * rhos[i])
         else:
-            S_true_neg.append(rhos[i])
+            S_true_neg.append(D_t[i] * rhos[i])
 
     for i in S_false:
         if labels[i] > 0:
-            S_false_pos.append(-rhos[i])
+            S_false_pos.append(-D_t[i] * rhos[i])
         else:
-            S_false_neg.append(-rhos[i])
+            S_false_neg.append(-D_t[i] * rhos[i])
 
     S_tp, S_tn = sum(S_true_pos), sum(S_true_neg)
     S_fp, S_fn = sum(S_false_pos), sum(S_false_neg)
@@ -98,8 +98,8 @@ class Particle():
         self.pos_best_i = []
 
 
-    def evaluate(self, costFunc, rho_path):
-        self.err_i = costFunc(self.position, self.signals, self.labels, self.primitive, rho_path)
+    def evaluate(self, costFunc, rho_path, D_t):
+        self.err_i = costFunc(self.position, self.signals, self.labels, self.primitive, rho_path, D_t)
 
         if self.err_i < self.err_best_i or self.err_best_i is None:
             self.err_best_i = self.err_i
@@ -202,10 +202,10 @@ class PSO():
         return swarm
 
 
-    def optimize_swarm(self, rho_path):
+    def optimize_swarm(self, rho_path, D_t):
         for k in range(self.k_max):
             for i in range(self.num_particles):
-                self.swarm[i].evaluate(self.costFunc, rho_path)
+                self.swarm[i].evaluate(self.costFunc, rho_path, D_t)
 
                 if self.swarm[i].err_best_i < self.err_best_g or self.err_best_g is None:
                     self.err_best_g = self.swarm[i].err_best_i
