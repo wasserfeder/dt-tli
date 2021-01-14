@@ -23,7 +23,7 @@ class PrimitiveMILP(object):
     '''TODO:
     '''
 
-    def __init__(self, signals, labels, ranges, rho_path, signal_dimension, model=None):
+    def __init__(self, signals, labels, ranges, rho_path, D_t, signal_dimension, model=None):
         '''TODO:
         '''
         if model is not None:
@@ -37,6 +37,7 @@ class PrimitiveMILP(object):
         self.horizon = len(signals[0][0])
         self.num_signals = len(signals)
         self.rho_path = rho_path
+        self.D_t = D_t
         self.signal_dimension = signal_dimension
 
         min_signals, max_signals = [], []
@@ -48,9 +49,10 @@ class PrimitiveMILP(object):
 
         # min_thresh = np.min(signals)
         # max_thresh = np.max(signals)
-        # self.M = 100        # For Naval
+        # self.M = 100        # For Naval without boosted tree
+        self.M = 10        # For Naval with boosted tree
         # self.M = 12         # For SimpleDS
-        self.M = 30           # For SimpleDS2
+        # self.M = 30           # For SimpleDS2
 
         self.lookuptable = traces_robustness_order1_lkt(self.signals)
 
@@ -105,14 +107,14 @@ class PrimitiveMILP(object):
 
         return rho
 
-    def minimum_sum_robustness(self, primitive_variables, labels):
+    def minimum_sum_robustness(self, primitive_variables, labels, D_t):
         '''TODO:
         '''
         tp_vars = []
         fp_vars = []
         tn_vars = []
         fn_vars = []
-        for rho, label in zip(primitive_variables, labels):
+        for rho, label, d_t in zip(primitive_variables, labels, D_t):
             pos_rho = self.model.addVar(lb=-self.M, ub=self.M,
                                         vtype=GRB.CONTINUOUS)
             self.model.addConstr(pos_rho == grb.max_(rho, 0))
@@ -120,11 +122,15 @@ class PrimitiveMILP(object):
                                         vtype=GRB.CONTINUOUS)
             self.model.addConstr(neg_rho == grb.min_(rho, 0))
             if label > 0:
-                tp_vars.append(pos_rho)
-                fp_vars.append(neg_rho)
+                # tp_vars.append(pos_rho)
+                # fp_vars.append(neg_rho)
+                tp_vars.append(d_t * pos_rho)
+                fp_vars.append(d_t * neg_rho)
             else:
-                tn_vars.append(pos_rho)
-                fn_vars.append(neg_rho)
+                # tn_vars.append(pos_rho)
+                # fn_vars.append(neg_rho)
+                tn_vars.append(d_t * pos_rho)
+                fn_vars.append(d_t * neg_rho)
 
         tp = sum(tp_vars)
         fp = sum(fp_vars)
@@ -196,7 +202,7 @@ class PrimitiveMILP(object):
         self.primitive_variables = [self.robustness(i, signal_dimension, np.inf)
                                for i in range(self.num_signals)]
 
-        var = self.minimum_sum_robustness(self.primitive_variables, self.labels)
+        var = self.minimum_sum_robustness(self.primitive_variables, self.labels, self.D_t)
         # var = self.minimum_sum_unitary(self.primitive_variables, self.labels)
 
         # objective function

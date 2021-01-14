@@ -6,7 +6,6 @@
 from stl_syntax import Formula, AND, OR, NOT, satisfies, robustness, GT
 import numpy as np
 from test_optimization_problem_sum_interval import PrimitiveMILP
-# from test_optimization_problem1 import PrimitiveMILP
 from pso_test import get_bounds, run_pso_optimization
 from pso import compute_robustness, PSO
 from stl_prim import set_stl1_pars, set_stl2_pars
@@ -69,7 +68,7 @@ class DTree(object):        # Decission tree recursive structure
 # ==============================================================================
 # ------------------------------------------------------------------------------
 # ==============================================================================
-def build_tree(signals, labels, rho_path, depth, primitives, opt_type, D_t):
+def build_inc_tree(signals, labels, rho_path, depth, primitives, opt_type, D_t):
     # Check stopping conditions
     if (depth <= 0) or (len(signals) == 0):
         return None

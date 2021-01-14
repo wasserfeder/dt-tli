@@ -3,24 +3,28 @@
 '''TODO:
 '''
 
+import os
+import argparse
+import math
+import time
+
 import gurobipy as grb
 from gurobipy import GRB
 import numpy as np
-import math
 from scipy.io import loadmat, savemat
-import argparse
-from os import path
-import os
+import pickle
+from stl_syntax import GT, LE
 
+from robustness import trace_robustness_order1_lkt_1d
+from robustness import trace_robustness_order1_lkt_nd
+from robustness import traces_robustness_order1_lkt
 
-
-######### (G_[14.6, 57.3] x_1 < 9.33)
 
 class PrimitiveMILP(object):
     '''TODO:
     '''
 
-    def __init__(self, signals, ranges, model=None):
+    def __init__(self, signals, labels, ranges, rho_path, D_t, primitive, model=None):
         '''TODO:
         '''
         if model is not None:
@@ -30,127 +34,205 @@ class PrimitiveMILP(object):
 
         self.variables = {}
         self.signals = signals
-        self.rho_max = 12   # TODO: set proper value
-        self.M = 20         # TODO: set proper value
-        self.horizon = len(signals[0]) - 1
-        self.num_sig = len(signals)
+        self.labels = labels
+        self.horizon = len(signals[0][0])
+        self.num_signals = len(signals)
+        self.rho_path = rho_path
+        self.D_t = D_t
+        self.primitive = primitive
+        self.signal_dimension = primitive.index
 
-        min_sig, max_sig = np.zeros(self.num_sig), np.zeros(self.num_sig)
-        for i in range(self.num_sig):
-            min_sig[i] = min(signals[i])
-            max_sig[i] = max(signals[i])
-        min_thresh, max_thresh = min(min_sig), max(max_sig)
+        min_signals, max_signals = [], []
+        for i in range(len(self.signals)):
+            min_signals.append(min(signals[i][self.signal_dimension]))
+            max_signals.append(max(signals[i][self.signal_dimension]))
+        min_thresh = min(min_signals)
+        max_thresh = max(max_signals)
 
-        ## primitive's Parameters
+        # min_thresh = np.min(signals)
+        # max_thresh = np.max(signals)
+        self.M = 70        # For Naval
+        # self.M = 12         # For SimpleDS
+        # self.M = 30           # For SimpleDS2
+
+        self.lookuptable = traces_robustness_order1_lkt(self.signals)
+
+        # primitive's parameters
         self.threshold = self.model.addVar(name='threshold', lb=min_thresh,
                                             ub=max_thresh, vtype=GRB.CONTINUOUS)
-        self.t1 = self.model.addVar(name='t1', lb=0, ub=self.horizon,
-                                    vtype=GRB.INTEGER)
-        self.t2 = self.model.addVar(name='t2', lb=0, ub=self.horizon,
-                                    vtype=GRB.INTEGER)
-        self.ind = [self.model.addVar(name='ind_{}'.format(t),
-                            vtype=GRB.BINARY) for t in range(self.horizon+1)]
-        self.ind_lb = [self.model.addVar(name='ind_lb_{}'.format(t),
-                            vtype=GRB.BINARY) for t in range(self.horizon+1)]
-        self.ind_ub = [self.model.addVar(name='ind_ub_{}'.format(t),
-                            vtype=GRB.BINARY) for t in range(self.horizon+1)]
 
-        self.model.addConstr(self.t1 < self.t2)
-        for t in range(self.horizon + 1):
-            self.model.addGenConstrIndicator(self.ind_lb[t], True, self.t1 <= t)
-            self.model.addGenConstrIndicator(self.ind_lb[t], False, t <= self.t1-1)
-            self.model.addGenConstrIndicator(self.ind_ub[t], True, t <= self.t2)
-            self.model.addGenConstrIndicator(self.ind_ub[t], False, self.t2+1 <= t)
-            self.model.addConstr(self.ind[t] ==
-                                    grb.and_(self.ind_lb[t], self.ind_ub[t]))
+        self.intervals = [[None] * self.horizon for _ in range(self.horizon)]
+        mutex_interval = 0
+        for t0 in range(self.horizon):
+            for dt in range(self.horizon - t0):
+                vname = 'interval_{}_{}'.format(t0, t0+dt)
+                self.intervals[dt][t0] = self.model.addVar(name=vname,
+                                                           vtype=GRB.BINARY)
+                mutex_interval += self.intervals[dt][t0]
 
+        self.model.addConstr(mutex_interval == 1,
+                             name='mutual_exclusive_time_intervals')
 
-
-    def predicate_robustness(self, signal_index, custom_encoding=False):
-        '''TODO:
-        '''
-        signal = self.signals[signal_index]
-        rho = self.model.addVar(name='r_pred_{}'.format(signal_index),
-                                lb=-self.M, ub=self.M, vtype=GRB.CONTINUOUS)
-
-        r_vars = [self.model.addVar(lb=-self.M, ub=self.M, vtype=GRB.CONTINUOUS)
-                    for t in range(self.horizon+1)]
-        s_vars = [self.model.addVar(lb=-self.M, ub=self.M, vtype=GRB.CONTINUOUS)
-                    for t in range(self.horizon+1)]
-        m_vars = [self.model.addVar(lb=-self.M, ub=self.M, vtype=GRB.CONTINUOUS)
-                    for t in range(self.horizon+1)]
-
-        for t, (r_var, s_var, m_var) in enumerate(zip(r_vars, s_vars, m_vars)):
-            self.model.addConstr(s_var == (self.threshold - signal[t]))
-            self.model.addConstr(m_var == self.M * (1 - 2 * self.ind[t]))
-            self.model.addConstr(r_var == grb.max_(s_var, m_var))
-
-        self.model.addConstr(rho == grb.min_(r_vars))
-        return rho
-
-
-    def pos_neg_partition(self, rho):
-        self.S_t = [self.model.addVar(vtype=GRB.BINARY) for i in range(self.num_sig)]
-        self.S_f = [self.model.addVar(vtype=GRB.BINARY) for i in range(self.num_sig)]
-        for i in range(self.num_sig):
-            self.model.addGenConstrIndicator(self.S_t[i], True, 0 <= rho[i])
-            self.model.addGenConstrIndicator(self.S_t[i], False, rho[i] <= 0.001)
-            self.model.addGenConstrIndicator(self.S_f[i], True, rho[i] <= 0.001)
-            self.model.addGenConstrIndicator(self.S_f[i], False, 0 <= rho[i])
-
-
-    def impurity_optimization(self, rho, pos_indices, neg_indices):
-        self.S_tp = [self.model.addVar(vtype=GRB.BINARY) for i in range(self.num_sig)]
-        self.S_tn = [self.model.addVar(vtype=GRB.BINARY) for i in range(self.num_sig)]
-        self.S_fp = [self.model.addVar(vtype=GRB.BINARY) for i in range(self.num_sig)]
-        self.S_fn = [self.model.addVar(vtype=GRB.BINARY) for i in range(self.num_sig)]
-
-        for i in neg_indices:
-            self.model.addConstr(self.S_tp[i] == 0)
-            self.model.addConstr(self.S_tn[i] == self.S_t[i])
-            self.model.addConstr(self.S_fp[i] == 0)
-            self.model.addConstr(self.S_fn[i] == self.S_f[i])
-        for i in pos_indices:
-            self.model.addConstr(self.S_tp[i] == self.S_t[i])
-            self.model.addConstr(self.S_tn[i] == 0)
-            self.model.addConstr(self.S_fp[i] == self.S_f[i])
-            self.model.addConstr(self.S_fn[i] == 0)
-
-
-        # for i in range(self.num_sig):
-        #     self.model.addConstr(self.S_tp[i] == grb.and_(self.S_t[i], pos_ind[i]))
-        #     self.model.addConstr(self.S_tn[i] == grb.and_(self.S_t[i], neg_ind[i]))
-        #     self.model.addConstr(self.S_fp[i] == grb.and_(self.S_f[i], pos_ind[i]))
-        #     self.model.addConstr(self.S_fn[i] == grb.and_(self.S_f[i], neg_ind[i]))
-
-        self.S_tp_card = self.model.addVar(lb=0, ub=self.num_sig, vtype=GRB.INTEGER)
-        self.S_tn_card = self.model.addVar(lb=0, ub=self.num_sig, vtype=GRB.INTEGER)
-        self.S_fp_card = self.model.addVar(lb=0, ub=self.num_sig, vtype=GRB.INTEGER)
-        self.S_fn_card = self.model.addVar(lb=0, ub=self.num_sig, vtype=GRB.INTEGER)
-
-        self.model.addConstr(self.S_tp_card == grb.quicksum(self.S_tp))
-        self.model.addConstr(self.S_tn_card == grb.quicksum(self.S_tn))
-        self.model.addConstr(self.S_fp_card == grb.quicksum(self.S_fp))
-        self.model.addConstr(self.S_fn_card == grb.quicksum(self.S_fn))
-
-        self.MR_true = self.model.addVar(lb=0, ub=self.num_sig, vtype=GRB.INTEGER)
-        self.MR_false = self.model.addVar(lb=0, ub=self.num_sig, vtype=GRB.INTEGER)
-
-        self.model.addConstr(self.MR_true == grb.min_(self.S_tp_card, self.S_tn_card))
-        self.model.addConstr(self.MR_false == grb.min_(self.S_fp_card, self.S_fn_card))
-
-        ################# Objective function #################
-        self.model.setObjective(self.MR_true + self.MR_false, GRB.MINIMIZE)
         self.model.update()
 
+    def robustness(self, signal_index, upper_bound=None):
+        '''TODO:
+        '''
+        signal = self.signals[signal_index][self.signal_dimension]
+        lkt = self.lookuptable[signal_index][self.signal_dimension]
+        if upper_bound is None:
+            upper_bound = self.M
+        assert upper_bound >= 0
+
+        weighted_sum = 0
+        for t0 in range(self.horizon):
+            for dt in range(self.horizon - t0):
+                weighted_sum += self.intervals[dt][t0] * lkt[dt][t0]
+
+        vname = 'r_no_path_{}_{}'.format(signal_index, self.signal_dimension)
+        primitive = self.model.addVar(name=vname, lb=-self.M, ub=self.M,
+                                      vtype=GRB.CONTINUOUS)
+        if self.primitive.rel == GT:
+            self.model.addConstr(primitive == weighted_sum - self.threshold)
+        else:
+            self.model.addConstr(primitive == self.threshold - weighted_sum)
+
+        vname = 'r_primitive_{}_{}'.format(signal_index, self.signal_dimension)
+        rho = self.model.addVar(name=vname, lb=-self.M, ub=self.M,
+                                vtype=GRB.CONTINUOUS)
+        self.model.addConstr(rho == grb.min_(primitive, upper_bound))
+
+        return rho
+
+    def minimum_sum_robustness(self, primitive_variables, labels, D_t):
+        '''TODO:
+        '''
+        tp_vars = []
+        fp_vars = []
+        tn_vars = []
+        fn_vars = []
+        for rho, label, d_t in zip(primitive_variables, labels, D_t):
+            pos_rho = self.model.addVar(lb=-self.M, ub=self.M,
+                                        vtype=GRB.CONTINUOUS)
+            self.model.addConstr(pos_rho == grb.max_(rho, 0))
+            neg_rho = self.model.addVar(lb=-self.M, ub=self.M,
+                                        vtype=GRB.CONTINUOUS)
+            self.model.addConstr(neg_rho == grb.min_(rho, 0))
+            if label > 0:
+                tp_vars.append(d_t * pos_rho)
+                fp_vars.append(d_t * neg_rho)
+            else:
+                tn_vars.append(d_t * pos_rho)
+                fn_vars.append(d_t * neg_rho)
+
+        tp = sum(tp_vars)
+        fp = sum(fp_vars)
+        tn = sum(tn_vars)
+        fn = sum(fn_vars)
+
+        self.psum = self.model.addVar(name='positive_sum', vtype=GRB.CONTINUOUS)
+        self.model.addConstr(self.psum == tp - fp)
+        self.nsum = self.model.addVar(name='negative_sum', vtype=GRB.CONTINUOUS)
+        self.model.addConstr(self.nsum == tn - fn)
+        self.tsum = self.model.addVar(name='correctly_classified_sum',
+                                 vtype=GRB.CONTINUOUS)
+        self.model.addConstr(self.tsum == tp - fn)
+        self.msum = self.model.addVar(name='misclassified_sum', vtype=GRB.CONTINUOUS)
+        self.model.addConstr(self.msum == tn - fp)
+
+        var = self.model.addVar(name='objective', vtype=GRB.CONTINUOUS)
+        self.model.addConstr(var == grb.min_(self.psum, self.nsum, self.tsum, self.msum))
+
+        return var
+
+
+    def minimum_sum_unitary(self, primitive_variables, labels):
+        '''TODO:
+        '''
+        tp_vars = []
+        fp_vars = []
+        tn_vars = []
+        # fn_vars = []
+        for rho, label in zip(primitive_variables, labels):
+            z_pos = self.model.addVar(vtype = GRB.BINARY)
+            self.model.addGenConstrIndicator(z_pos, True, rho >= 0.1)
+            self.model.addGenConstrIndicator(z_pos, False, rho <= 0)
+
+            if label > 0:
+                tp_vars.append(z_pos)
+                fp_vars.append(1-z_pos)
+            else:
+                tn_vars.append(z_pos)
+                # fn_vars.append(1-z_pos)
+
+        tp = sum(tp_vars)
+        fp = sum(fp_vars)
+        tn = sum(tn_vars)
+        # fn = sum(fn_vars)
+        fn = self.num_signals - tp - fp - tn
+
+        self.psum = self.model.addVar(name='positive_sum', vtype=GRB.INTEGER)
+        self.model.addConstr(self.psum == tp + fp)
+        self.nsum = self.model.addVar(name='negative_sum', vtype=GRB.INTEGER)
+        self.model.addConstr(self.nsum == tn + fn)
+        self.tsum = self.model.addVar(name='correctly_classified_sum',
+                                 vtype=GRB.INTEGER)
+        self.model.addConstr(self.tsum == tp + fn)
+        self.msum = self.model.addVar(name='misclassified_sum', vtype=GRB.INTEGER)
+        self.model.addConstr(self.msum == tn + fp)
+
+        var = self.model.addVar(name='objective', vtype=GRB.INTEGER)
+        self.model.addConstr(var == grb.min_(self.psum, self.nsum, self.tsum, self.msum))
+
+        return var
+
+
+    def impurity_optimization(self):
+        '''TODO:
+        '''
+        # self.primitive_variables = [self.robustness(i, signal_dimension, self.rho_path[i])
+        #                        for i in range(self.num_signals)]
+        self.primitive_variables = [self.robustness(i, np.inf) for i in range(self.num_signals)]
+
+        var = self.minimum_sum_robustness(self.primitive_variables, self.labels, self.D_t)
+        # var = self.minimum_sum_unitary(self.primitive_variables, self.labels)
+
+        # objective function
+        self.model.setObjective(var, GRB.MINIMIZE)
+        self.model.update()
 
     def get_interval(self):
         '''TODO:
         '''
         if self.model.status == GRB.OPTIMAL:
-            values = np.array([var.x for var in self.ind])
-            values = np.argwhere(values > 0.5)
-            return np.min(values), np.max(values)
+            check_solution = 0
+            interval = None
+            for t0 in range(self.horizon):
+                for dt in range(self.horizon - t0):
+                    check_solution += self.intervals[dt][t0].X
+                    if self.intervals[dt][t0].X:
+                        interval = (t0, t0+dt)
+            assert check_solution == 1
+            return interval
+        else:
+            raise RuntimeError('The model needs to be solved first!')
+
+    def get_threshold(self):
+        if self.model.status == GRB.OPTIMAL:
+            return self.threshold.X
+        else:
+            raise RuntimeError('The model needs to be solved first!')
+
+    def get_robustnesses(self):
+        if self.model.status == GRB.OPTIMAL:
+            return np.array([rho.X for rho in self.primitive_variables])
+        else:
+            raise RuntimeError('The model needs to be solved first!')
+
+    def get_values(self):
+        if self.model.status == GRB.OPTIMAL:
+            a = [self.psum.X, self.nsum.X, self.tsum.X, self.msum.X]
+            return a
         else:
             raise RuntimeError('The model needs to be solved first!')
 
@@ -162,10 +244,8 @@ def get_argparser():
     return parser
 
 
-
 def get_path(f):
-    return path.join(os.getcwd(), f)
-
+    return os.path.join(os.getcwd(), f)
 
 
 def test1():
@@ -174,37 +254,69 @@ def test1():
     args            = get_argparser().parse_args()
     filename        = get_path(args.file)
     mat_data        = loadmat(filename)
-    mat_data        = loadmat(filename)
-    timepoints      = list(mat_data['t'][0])
-    labels          = list(mat_data['labels'][0])
-    num_sig         = len(labels)
-    signals         = [mat_data['data'][i][0] for i in range(num_sig)]
-    pos_indices, neg_indices = [], []
-    for i in range(len(labels)):
-        if labels[i] >= 0:
-            pos_indices.append(i)
-        else:
-            neg_indices.append(i)
+    timepoints      = mat_data['t'][0]
+    labels          = mat_data['labels'][0]
+    signals         = mat_data['data']      # alw >
+    # signals         = - mat_data['data']    # alw <=
 
-    milp = PrimitiveMILP(signals, None)
-    rho = [milp.predicate_robustness(i) for i in range(num_sig)]
-    milp.pos_neg_partition(rho)
-    milp.impurity_optimization(rho, pos_indices, neg_indices)
+    # pickle_in = open("indices.pickle","rb")
+    # dict = pickle.load(pickle_in)
+    # sat_indices = dict["sat_indices"]
+    # unsat_indices = dict["unsat_indices"]
+    # sat_rho = dict["sat_rho"]
+    # unsat_rho = dict["unsat_rho"]
+    # sat_signals, sat_labels = [], []
+    # unsat_signals, unsat_labels = [], []
+    # for i in sat_indices:
+    #     sat_signals.append(-signals[i])
+    #     sat_labels.append(labels[i])
+    #
+    # for i in unsat_indices:
+    #     unsat_signals.append(signals[i])
+    #     unsat_labels.append(labels[i])
 
-    milp.model.update()
+    # rho_path = sat_rho
+    # rho_path = unsat_rho
+    rho_path        = [np.inf for signal in signals]
+    print(signals.shape)
+    print('Number of signals:', len(signals))
+    print('Time points:', len(timepoints))
+
+
+    t0 = time.time()
+    milp = PrimitiveMILP(signals, labels, None, rho_path)
+    milp.impurity_optimization(signal_dimension=0) # x-axis
+    # milp.impurity_optimization(signal_dimension=1) # y-axis
+
+    dt = time.time() - t0
+    print('Setup time:', dt)
+
+    t0 = time.time()
     milp.model.optimize()
-    print(milp.model.status)
+    dt = time.time() - t0
+    print('Runtime:', dt)
+    print('Model optimization status:', milp.model.status)
 
     print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n\tSolution:')
-    # print([(r.varName, r.x) for r in rho])
-    print(milp.threshold.varName, milp.threshold.x)
-    print([var.x for var in milp.ind])
-    print('Time interval', milp.get_interval())
+    print('Threshold:', milp.get_threshold())
+    print('Time interval:', milp.get_interval())
+    print('Objective value:', milp.model.objVal)
+    print('values:', milp.get_values())
+    ####
+    sat_indices, unsat_indices = [], []
+    rho = milp.get_robustnesses()
+    for i in range(len(signals)):
+        if rho[i] >= 0:
+            sat_indices.append(i)
+        else:
+            unsat_indices.append(i)
 
+    print("number of satisfying signals:", len(sat_indices))
+    print("number of violating signals:", len(unsat_indices))
+    ####
 
 def main():
     test1()
-
 
 if __name__ == '__main__':
     main()
