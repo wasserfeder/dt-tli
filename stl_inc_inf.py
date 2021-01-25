@@ -9,6 +9,7 @@ from test_optimization_problem_sum_interval import PrimitiveMILP
 from pso_test import get_bounds, run_pso_optimization
 from pso import compute_robustness, PSO
 from stl_prim import set_stl1_pars, set_stl2_pars
+from scipy.stats import norm
 
 # ==============================================================================
 # ------------------------------------------------------------------------------
@@ -74,11 +75,14 @@ def build_inc_tree(signals, labels, rho_path, depth, primitives, opt_type, D_t):
         return None
 
     if opt_type == 'milp':
-        prim, impurity, rhos = best_prim_milp(signals, labels, rho_path, D_t,
+        prim, impurity, rhos = best_prim_inc_milp(signals, labels, rho_path, D_t,
                                                                     primitives)
     else:
-        prim, impurity, rhos = best_prim_pso(signals, labels, rho_path, D_t,
+        prim, impurity, rhos = best_prim_inc_pso(signals, labels, rho_path, D_t,
                                                                     primitives)
+
+    if prim is None:
+        return None
     # Check for EVENTUALLY primitives
     counter = 0
     reverse_counter = 0
@@ -122,9 +126,9 @@ def build_inc_tree(signals, labels, rho_path, depth, primitives, opt_type, D_t):
     unsat_signals   = np.array(unsat_signals)
 
     # Recursively build the tree
-    tree.left = build_tree(sat_signals, sat_labels, sat_rho, depth - 1,
+    tree.left = build_inc_tree(sat_signals, sat_labels, sat_rho, depth - 1,
                 primitives, opt_type, sat_weights)
-    tree.right = build_tree(unsat_signals, unsat_labels, unsat_rho, depth - 1,
+    tree.right = build_inc_tree(unsat_signals, unsat_labels, unsat_rho, depth - 1,
                 primitives, opt_type, unsat_weights)
 
     return tree
@@ -134,7 +138,7 @@ def build_inc_tree(signals, labels, rho_path, depth, primitives, opt_type, D_t):
 # ------------------------------------------------------------------------------
 # ==============================================================================
 
-def best_prim_milp(signals, labels, rho_path, D_t, primitives):
+def best_prim_inc_milp(signals, labels, rho_path, D_t, primitives):
     opt_prims = []
     for primitive in primitives:
         primitive = primitive.copy()
@@ -167,7 +171,10 @@ def best_prim_milp(signals, labels, rho_path, D_t, primitives):
 # ------------------------------------------------------------------------------
 # ==============================================================================
 
-def best_prim_pso(signals, labels, rho_path, D_t, primitives):
+def best_prim_inc_pso(signals, labels, rho_path, D_t, primitives):
+    delta = 0.1
+    quantile = norm.ppf(1-delta)
+    epsilon = quantile * (1 / np.sqrt(2 * len(signals)))
     opt_prims = []
     for primitive in primitives:
         primitive = primitive.copy()
@@ -185,4 +192,18 @@ def best_prim_pso(signals, labels, rho_path, D_t, primitives):
                                     rho_path[i]) for i in range(len(signals))])
         opt_prims.append([primitive, impurity, rhos])
 
-    return min(opt_prims, key=lambda x: x[1])
+    index = None
+    for i in range(len(opt_prims)):
+        imp = opt_prims[i][1]
+        differences = []
+        for j in range(len(opt_prims)):
+            if j != i:
+                imp1 = opt_prims[j][1]
+                differences.append(imp1 - imp > epsilon)
+        if all(differences):
+            index = i
+
+    if index is None:
+        return None, None, None
+    else:
+        return opt_prims[index]

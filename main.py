@@ -11,6 +11,7 @@ import os
 import time
 from stl_prim import make_stl_primitives1, make_stl_primitives2
 from stl_inf import build_tree
+from stl_inc_inf import build_inc_tree
 from stl_syntax import GT
 from sklearn.model_selection import KFold
 
@@ -19,21 +20,36 @@ from sklearn.model_selection import KFold
 # ------------------------------------------------------------------------------
 # ==============================================================================
 def inc_tree(tr_s, tr_l, te_s, te_l, rho_path, depth, primitives, opt_type, D_t):
-    tree = build_inc_tree(tr_s, tr_l, rho_path, depth, primitives, opt_type, D_t)
-    formula = tree.get_formula()
-    # tr_MCR  = 100 * label_evaluation(tr_s, tr_l, tree)
-    # if te_s is None:
-    #     te_MCR = None
-    #
-    # else:
-    #     te_MCR = 100 * label_evaluation(te_s, te_l, tree)
-    #
-    # return formula, tr_MCR, te_MCR
+    timepoints = len(tr_s[0][0])
+    trees, weights = [], []
+    formulas = []
+    for t in range(2, timepoints):
+        tr_s_partial = tr_s[:,:,:t]
+        tree = build_inc_tree(tr_s_partial, tr_l, rho_path, depth, primitives, opt_type, D_t)
+        if tree is not None:
+            trees.append(tree)
+            formulas.append(tree.get_formula())
+            rhos = [tree.tree_robustness(signal, np.inf) for signal in tr_s_partial]
+            pred_labels = np.array([tree.classify(signal) for signal in tr_s_partial])
+            epsilon = 0
+            for i in range(len(tr_s_partial)):
+                if tr_l[i] != pred_labels[i]:
+                    epsilon = epsilon + D_t[i]
 
+            weights.append(0.5 * np.log(1/epsilon - 1))
+            D_t = np.multiply(D_t, np.exp(np.multiply(-weights[-1],
+                                          np.multiply(tr_l, pred_labels))))
+            D_t = np.true_divide(D_t, sum(D_t))
 
+    numtree = len(trees)
+    tr_MCR = 100 * bdt_evaluation(tr_s, tr_l, trees, weights, numtree)
+    if te_s is None:
+        te_MCR = None
 
+    else:
+        te_MCR = 100 * bdt_evaluation(te_s, te_l, trees, weights, numtree)
 
-
+    return formulas, tr_MCR, te_MCR
 
 
 
@@ -124,7 +140,7 @@ def learn_formula(tr_s, tr_l, te_s, te_l, args):
     opt_type    = args.optimization
     primitives1 = make_stl_primitives1(tr_s)
     primitives2 = make_stl_primitives2(tr_s)
-    primitives  = primitives1
+    primitives  = primitives1 
     rho_path    = [np.inf for signal in tr_s]
     D_t         = np.true_divide(np.ones(len(tr_s)), len(tr_s))
 

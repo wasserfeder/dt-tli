@@ -67,15 +67,19 @@ def pso_costFunc(position, signals, labels, primitive, rho_path, D_t):
 
     for i in S_true:
         if labels[i] > 0:
-            S_true_pos.append(D_t[i] * rhos[i])
+            # S_true_pos.append(D_t[i] * rhos[i])
+            S_true_pos.append(D_t[i])
         else:
-            S_true_neg.append(D_t[i] * rhos[i])
+            # S_true_neg.append(D_t[i] * rhos[i])
+            S_true_neg.append(D_t[i])
 
     for i in S_false:
         if labels[i] > 0:
-            S_false_pos.append(-D_t[i] * rhos[i])
+            # S_false_pos.append(-D_t[i] * rhos[i])
+            S_false_pos.append(D_t[i])
         else:
-            S_false_neg.append(-D_t[i] * rhos[i])
+            # S_false_neg.append(-D_t[i] * rhos[i])
+            S_false_neg.append(D_t[i])
 
     S_tp, S_tn = sum(S_true_pos), sum(S_true_neg)
     S_fp, S_fn = sum(S_false_pos), sum(S_false_neg)
@@ -155,8 +159,8 @@ class Particle():
 
 class PSO():
     def __init__(self, signals, labels, bounds, primitive):
-        # self.k_max              = 50       # max iterations
-        self.k_max              = 15       # max iterations
+        self.k_max              = 50       # max iterations
+        # self.k_max              = 15       # max iterations
         self.num_particles      = 15        # number of particles
         self.signals            = signals
         self.labels             = labels
