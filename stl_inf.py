@@ -5,7 +5,7 @@
 
 from stl_syntax import Formula, AND, OR, NOT, satisfies, robustness, GT
 import numpy as np
-from test_optimization_problem_sum_interval import PrimitiveMILP
+from milp import PrimitiveMILP
 from pso_test import run_pso_optimization
 from pso import compute_robustness
 from stl_prim import set_stl1_pars, set_stl2_pars
