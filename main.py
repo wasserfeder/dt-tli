@@ -115,7 +115,10 @@ def boosted_trees(tr_s, tr_l, te_s, te_l, rho_path, depth, primitives, opt_type,
             if tr_l[i] != pred_labels[i]:
                 epsilon[t] = epsilon[t] + D_t[i]
 
-        weights[t] = 0.5 * np.log(1/epsilon[t] - 1)
+        if epsilon[t] > 0:
+            weights[t] = 0.5 * np.log(1/epsilon[t] - 1)
+        else:
+            weights[t] = 0
         D_t = np.multiply(D_t, np.exp(np.multiply(-weights[t],
                                       np.multiply(tr_l, pred_labels))))
         D_t = np.true_divide(D_t, sum(D_t))
@@ -140,7 +143,7 @@ def learn_formula(tr_s, tr_l, te_s, te_l, args):
     opt_type    = args.optimization
     primitives1 = make_stl_primitives1(tr_s)
     primitives2 = make_stl_primitives2(tr_s)
-    primitives  = primitives1 
+    primitives  = primitives1
     rho_path    = [np.inf for signal in tr_s]
     D_t         = np.true_divide(np.ones(len(tr_s)), len(tr_s))
 
