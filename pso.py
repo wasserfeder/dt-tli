@@ -158,10 +158,12 @@ class Particle():
 
 
 class PSO():
-    def __init__(self, signals, labels, bounds, primitive):
-        self.k_max              = 50       # max iterations
+    def __init__(self, signals, labels, bounds, primitive, args):
+        # self.k_max              = 50       # max iterations
         # self.k_max              = 15       # max iterations
-        self.num_particles      = 15        # number of particles
+        # self.num_particles      = 15        # number of particles
+        self.k_max              = args.k_max
+        self.num_particles      = args.num_particles
         self.signals            = signals
         self.labels             = labels
         self.costFunc           = pso_costFunc

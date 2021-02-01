@@ -6,6 +6,10 @@ import argparse
 from os import path
 import os
 import matplotlib.pyplot as plt
+plt.rcParams['text.latex.preamble'] = [r'\usepackage{sfmath} \boldmath']
+plt.rcParams['text.usetex'] = True
+plt.rcParams['font.weight'] = 'black'
+plt.rcParams['font.size'] = '18'
 
 
 def draw_results(mat_data):
