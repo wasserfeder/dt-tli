@@ -140,25 +140,18 @@ def boosted_trees(tr_s, tr_l, te_s, te_l, rho_path, primitives, D_t, args):
 def learn_formula(tr_s, tr_l, te_s, te_l, args):
     inc         = args.inc
     numtree     = args.numtree
-    # depth       = args.depth
-    # opt_type    = args.optimization
     primitives1 = make_stl_primitives1(tr_s)
     primitives2 = make_stl_primitives2(tr_s)
-    primitives  = primitives1
+    primitives  = primitives1 + primitives2
     rho_path    = [np.inf for signal in tr_s]
     D_t         = np.true_divide(np.ones(len(tr_s)), len(tr_s))
 
     if not inc:     # Non-incremental version
         if numtree == 1:   # No boosted decision trees
-            # formula, tr_MCR, te_MCR = single_tree(tr_s, tr_l, te_s, te_l,
-            #                         rho_path, depth, primitives, opt_type, D_t)
             formula, tr_MCR, te_MCR = single_tree(tr_s, tr_l, te_s, te_l,
                                     rho_path, primitives, D_t, args)
 
         else:
-            # formula, tr_MCR, te_MCR = boosted_trees(tr_s, tr_l, te_s, te_l,
-            #                         rho_path, depth, primitives, opt_type, D_t,
-            #                         numtree)
             formula, tr_MCR, te_MCR = boosted_trees(tr_s, tr_l, te_s, te_l,
                                     rho_path, primitives, D_t, args)
     else:         # Incremental version
@@ -246,8 +239,8 @@ def kfold_cross_validation(filename, args):
     kf = KFold(n_splits = k_fold)
     candidate_depths = [1, 2, 3, 4]
     candidate_numtrees = [1, 2, 3, 4, 5]
-    candidate_k_max = [10, 15, 20, 30, 50]
-    candidate_num_particles = [10, 15, 20, 30, 50]
+    candidate_k_max = [15, 30, 50]
+    candidate_num_particles = [15, 20, 50]
 
     parameters = []
     for depth in candidate_depths:
