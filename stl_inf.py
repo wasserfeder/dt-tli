@@ -57,7 +57,7 @@ class DTree(object):        # Decission tree recursive structure
         right = Formula(NOT, [self.primitive])
         if self.left is not None:
             left = Formula(AND, [self.primitive, self.left.get_formula()])
-        if self.right is not None:
+        if self.right is not None and self.left is not None:
             return Formula(OR, [left, Formula(AND, [right, self.right.get_formula()])])
         else:
             return left
@@ -68,9 +68,27 @@ class DTree(object):        # Decission tree recursive structure
 # ==============================================================================
 def build_tree(signals, labels, rho_path, depth, primitives, D_t, args):
     opt_type = args.optimization
+
     # Check stopping conditions
     if (depth <= 0) or (len(signals) == 0):
         return None
+
+    # stop_threshold = 0.975
+    # len_labels = len(labels)
+    # pos_labels, neg_labels = 0, 0
+    # for i in range(len(labels)):
+    #     if labels[i] > 0:
+    #         pos_labels = pos_labels + 1
+    #     else:
+    #         neg_labels = neg_labels + 1
+    # majority_pos = pos_labels / len_labels > stop_threshold
+    # majority_neg = neg_labels / len_labels > stop_threshold
+    # majority_vote = (majority_pos) or (majority_neg)
+    #
+    # if majority_vote:
+    #     return None
+
+
 
     if opt_type == 'milp':
         prim, impurity, rhos = best_prim_milp(signals, labels, rho_path,

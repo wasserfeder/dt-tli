@@ -38,8 +38,8 @@ def draw_results(mat_data):
             axs[0].grid(True)
     if num_dimensions > 1:
         axs[0, 0].set_title("Positive Signals")
-        axs[0, 0].set_ylabel('Signal value')
-        axs[1, 0].set_ylabel('Signal value')
+        axs[0, 0].set_ylabel('X (m)')
+        axs[1, 0].set_ylabel('Y (m)')
         axs[1,0].set_xlabel('Time')
     else:
         axs[0].set_title("Positive Signals")
@@ -64,7 +64,7 @@ def draw_results(mat_data):
         axs[1].set_title("Negative Signals")
         axs[1].set_xlabel('Time')
 
-    plt.show(block = True)
+    plt.show()
     datafig.savefig('/home/erfan/Documents/University/Projects/Learning Specifications/dt-tli/Figures/data_time.eps', format='eps')
     datafig.savefig('/home/erfan/Documents/University/Projects/Learning Specifications/dt-tli/Figures/data_time.png', format='png')
 

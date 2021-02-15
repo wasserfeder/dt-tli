@@ -44,11 +44,11 @@ class DTree(object):        # Decission tree recursive structure
         else:
             params = [pi, t0 ,t1, self.primitive.t3]
         rho = compute_robustness(signal, params, self.primitive, rho_path)
-        if self.left is None:
+        if self.left is None and self.right is None:
             return rho
         elif rho >= 0 and self.left is not None:
             return self.left.tree_robustness(signal, rho)
-        else:
+        elif rho < 0 and self.right is not None:
             return self.right.tree_robustness(signal, -rho)
 
 
@@ -69,17 +69,18 @@ class DTree(object):        # Decission tree recursive structure
 # ==============================================================================
 # ------------------------------------------------------------------------------
 # ==============================================================================
-def build_inc_tree(signals, labels, rho_path, depth, primitives, opt_type, D_t):
+def build_inc_tree(signals, labels, rho_path, depth, primitives, D_t, args):
+    opt_type = args.optimization
     # Check stopping conditions
     if (depth <= 0) or (len(signals) == 0):
         return None
 
     if opt_type == 'milp':
-        prim, impurity, rhos = best_prim_inc_milp(signals, labels, rho_path, D_t,
-                                                                    primitives)
+        prim, impurity, rhos = best_prim_inc_milp(signals, labels, rho_path,
+                                                  primitives, D_t, args)
     else:
-        prim, impurity, rhos = best_prim_inc_pso(signals, labels, rho_path, D_t,
-                                                                    primitives)
+        prim, impurity, rhos = best_prim_inc_pso(signals, labels, rho_path,
+                                                  primitives, D_t, args)
 
     if prim is None:
         return None
@@ -127,9 +128,9 @@ def build_inc_tree(signals, labels, rho_path, depth, primitives, opt_type, D_t):
 
     # Recursively build the tree
     tree.left = build_inc_tree(sat_signals, sat_labels, sat_rho, depth - 1,
-                primitives, opt_type, sat_weights)
+                primitives, sat_weights, args)
     tree.right = build_inc_tree(unsat_signals, unsat_labels, unsat_rho, depth - 1,
-                primitives, opt_type, unsat_weights)
+                primitives, unsat_weights, args)
 
     return tree
 
@@ -138,7 +139,7 @@ def build_inc_tree(signals, labels, rho_path, depth, primitives, opt_type, D_t):
 # ------------------------------------------------------------------------------
 # ==============================================================================
 
-def best_prim_inc_milp(signals, labels, rho_path, D_t, primitives):
+def best_prim_inc_milp(signals, labels, rho_path, primitives, D_t, args):
     opt_prims = []
     for primitive in primitives:
         primitive = primitive.copy()
@@ -171,7 +172,7 @@ def best_prim_inc_milp(signals, labels, rho_path, D_t, primitives):
 # ------------------------------------------------------------------------------
 # ==============================================================================
 
-def best_prim_inc_pso(signals, labels, rho_path, D_t, primitives):
+def best_prim_inc_pso(signals, labels, rho_path, primitives, D_t, args):
     delta = 0.1
     quantile = norm.ppf(1-delta)
     epsilon = quantile * (1 / np.sqrt(2 * len(signals)))
@@ -180,8 +181,8 @@ def best_prim_inc_pso(signals, labels, rho_path, D_t, primitives):
         primitive = primitive.copy()
         print('***************************************************************')
         print("candidate primitive:", primitive)
-        params, impurity = run_pso_optimization(signals, labels, rho_path, D_t,
-                           primitive)
+        params, impurity = run_pso_optimization(signals, labels, rho_path,
+                                                primitive, D_t, args)
         if primitive.type == 1:
             primitive = set_stl1_pars(primitive, params)
 
