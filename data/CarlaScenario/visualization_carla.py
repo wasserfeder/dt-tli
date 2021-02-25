@@ -1,10 +1,10 @@
 from scipy.io import loadmat, savemat
 import numpy as np
 import matplotlib.pyplot as plt
-plt.rcParams['text.latex.preamble'] = [r'\usepackage{sfmath} \boldmath']
-plt.rcParams['text.usetex'] = True
-plt.rcParams['font.weight'] = 'black'
-plt.rcParams['font.size'] = '18'
+# plt.rcParams['text.latex.preamble'] = [r'\usepackage{sfmath} \boldmath']
+# plt.rcParams['text.usetex'] = True
+# plt.rcParams['font.weight'] = 'black'
+# plt.rcParams['font.size'] = '18'
 
 
 filename = 'carla_scenario_300.mat'
@@ -44,8 +44,8 @@ axs[1, 1].set_xlabel('Time')
 
 
 # plt.show(block = True)
-positionfig.savefig('/home/erfan/Documents/University/Projects/Learning Specifications/dt-tli/Figures/carla_pose_data.eps', format='eps')
-positionfig.savefig('/home/erfan/Documents/University/Projects/Learning Specifications/dt-tli/Figures/carla_pose_data.png', format='png')
+# positionfig.savefig('/home/erfan/Documents/University/Projects/Learning Specifications/dt-tli/Figures/carla_pose_data.eps', format='eps')
+# positionfig.savefig('/home/erfan/Documents/University/Projects/Learning Specifications/dt-tli/Figures/carla_pose_data.png', format='png')
 
 
 velfig, axs = plt.subplots(2, 2)
@@ -70,8 +70,8 @@ axs[1, 1].set_xlabel('Time')
 
 
 # plt.show(block = True)
-velfig.savefig('/home/erfan/Documents/University/Projects/Learning Specifications/dt-tli/Figures/carla_vel_data.eps', format='eps')
-velfig.savefig('/home/erfan/Documents/University/Projects/Learning Specifications/dt-tli/Figures/carla_vel_data.png', format='png')
+# velfig.savefig('/home/erfan/Documents/University/Projects/Learning Specifications/dt-tli/Figures/carla_vel_data.eps', format='eps')
+# velfig.savefig('/home/erfan/Documents/University/Projects/Learning Specifications/dt-tli/Figures/carla_vel_data.png', format='png')
 
 
 

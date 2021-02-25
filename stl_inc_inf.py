@@ -200,7 +200,8 @@ def best_prim_inc_pso(signals, labels, rho_path, primitives, D_t, args):
         for j in range(len(opt_prims)):
             if j != i:
                 imp1 = opt_prims[j][1]
-                differences.append(imp1 - imp > epsilon)
+                # differences.append(imp1 - imp > epsilon)
+                differences.append(imp - imp1 > epsilon)
         if all(differences):
             index = i
 

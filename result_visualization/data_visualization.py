@@ -6,10 +6,10 @@ import argparse
 from os import path
 import os
 import matplotlib.pyplot as plt
-plt.rcParams['text.latex.preamble'] = [r'\usepackage{sfmath} \boldmath']
-plt.rcParams['text.usetex'] = True
-plt.rcParams['font.weight'] = 'black'
-plt.rcParams['font.size'] = '18'
+# plt.rcParams['text.latex.preamble'] = [r'\usepackage{sfmath} \boldmath']
+# plt.rcParams['text.usetex'] = True
+# plt.rcParams['font.weight'] = 'black'
+# plt.rcParams['font.size'] = '18'
 
 
 def draw_results(mat_data):
@@ -33,7 +33,7 @@ def draw_results(mat_data):
             else:
                 axs[0].plot(timepoints, signals[i][j])
         if num_dimensions > 1:
-            axs[j, 0].grid(True)
+            axs[j, 0].grid(b = True, which = 'major')
         else:
             axs[0].grid(True)
     if num_dimensions > 1:
@@ -54,7 +54,7 @@ def draw_results(mat_data):
             else:
                 axs[1].plot(timepoints, signals[i][j])
         if num_dimensions > 1:
-            axs[j, 1].grid(True)
+            axs[j, 1].grid(b = True, which = 'major')
         else:
             axs[1].grid(True)
     if num_dimensions > 1:
@@ -64,9 +64,11 @@ def draw_results(mat_data):
         axs[1].set_title("Negative Signals")
         axs[1].set_xlabel('Time')
 
-    plt.show()
+
     datafig.savefig('/home/erfan/Documents/University/Projects/Learning Specifications/dt-tli/Figures/data_time.eps', format='eps')
     datafig.savefig('/home/erfan/Documents/University/Projects/Learning Specifications/dt-tli/Figures/data_time.png', format='png')
+    plt.show()
+
 
 def get_argparser():
     parser = argparse.ArgumentParser(

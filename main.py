@@ -23,6 +23,7 @@ import pickle
 # ==============================================================================
 def inc_tree(tr_s, tr_l, te_s, te_l, rho_path, primitives, D_t, args):
     depth = args.depth
+    M = 100
     timepoints = len(tr_s[0][0])
     trees, weights = [], []
     formulas = []
@@ -39,7 +40,10 @@ def inc_tree(tr_s, tr_l, te_s, te_l, rho_path, primitives, D_t, args):
                 if tr_l[i] != pred_labels[i]:
                     epsilon = epsilon + D_t[i]
 
-            weights.append(0.5 * np.log(1/epsilon - 1))
+            if epsilon > 0 :
+                weights.append(0.5 * np.log(1/epsilon - 1))
+            else:
+                weights.append(M)
             D_t = np.multiply(D_t, np.exp(np.multiply(-weights[-1],
                                           np.multiply(tr_l, pred_labels))))
             D_t = np.true_divide(D_t, sum(D_t))
@@ -54,7 +58,7 @@ def inc_tree(tr_s, tr_l, te_s, te_l, rho_path, primitives, D_t, args):
         te_MCR_vector, te_MCR = inc_normal_evaluation(te_s, te_l, trees, weights, numtree)
         print("Test MCR vector:", 100 * te_MCR_vector)
 
-    return formulas, weights, 100 * tr_MCR, 100 * te_MCR
+    return formulas, weights, 100 * tr_MCR, 100 * te_MCR, 100 * tr_MCR_vector, 100 * te_MCR_vector
 
 
 
@@ -64,13 +68,6 @@ def inc_tree(tr_s, tr_l, te_s, te_l, rho_path, primitives, D_t, args):
 # ==============================================================================
 def inc_normal_evaluation(signals, labels, trees, weights, numtree):
     timepoints = len(signals[0][0])
-    # first_tree = trees[0]
-    # first_prim = first_tree.primitive
-    # if first_prim.type == 1:
-    #     prim_horizon = first_prim.t1
-    # else:
-    #     prim_horizon = first_prim.t1 + first_prim.t3
-
     mr_vector = np.zeros(timepoints)
     for t in range(timepoints):
         predictions = np.zeros(len(signals))
@@ -114,71 +111,10 @@ def inc_normal_evaluation(signals, labels, trees, weights, numtree):
             mr_vector[t] = np.count_nonzero(labels - predictions) / float(len(labels))
         else:
             mr_vector[t] = 0.5
+            # Pessimistic: 1.0
+            # Optimistic: 0.0
 
     return mr_vector, sum(mr_vector)/timepoints
-
-
-def inc_pessimistic_evaluation(signals, labels, trees, weights, numtree):
-    timepoints = len(signals[0][0])
-    first_tree = trees[0]
-    first_prim = first_tree.primitive
-    if first_prim.type == 1:
-        prim_horizon = first_prim.t1
-    else:
-        prim_horizon = first_prim.t1 + first_prim.t3
-
-    mr_vector = np.zeros(timepoints)
-    for t in range(timepoints):
-        predictions = np.zeros(len(signals))
-        partial_signals = signals[:,:,:t]
-        for i in range(numtree):
-            tree = trees[i]
-            prim = tree.primitive
-            if prim.type == 1:
-                prim_horizon = prim.t1
-            else:
-                prim_horizon = prim.t1 + prim.t3
-            if prim_horizon < t:
-                predictions = predictions + weights[i] * np.array([tree.classify(signal)
-                                                                for signal in partial_signals])
-            else:
-                predictions = predictions + weights[i] * np.array([-1 for signal in partial_signals])
-
-        predictions = np.sign(predictions)
-        mr_vector[t] = np.count_nonzero(labels - predictions) / float(len(labels))
-
-    return sum(mr_vector)/timepoints
-
-def inc_optimistic_evaluation(signals, labels, trees, weights, numtree):
-    timepoints = len(signals[0][0])
-    first_tree = trees[0]
-    first_prim = first_tree.primitive
-    if first_prim.type == 1:
-        prim_horizon = first_prim.t1
-    else:
-        prim_horizon = first_prim.t1 + first_prim.t3
-
-    mr_vector = np.zeros(timepoints)
-    for t in range(timepoints):
-        predictions = np.zeros(len(signals))
-        partial_signals = signals[:,:,:t]
-        for i in range(numtree):
-            tree = trees[i]
-            prim = tree.primitive
-            if prim.type == 1:
-                prim_horizon = prim.t1
-            else:
-                prim_horizon = prim.t1 + prim.t3
-            if prim_horizon < t:
-                predictions = predictions + weights[i] * np.array([tree.classify(signal)
-                                                                for signal in partial_signals])
-            else:
-                predictions = predictions + weights[i] * np.array([+1 for signal in partial_signals])
-
-        predictions = np.sign(predictions)
-        mr_vector[t] = np.count_nonzero(labels - predictions) / float(len(labels))
-
-    return sum(mr_vector)/timepoints
 
 
 
@@ -223,7 +159,8 @@ def single_tree(tr_s, tr_l, te_s, te_l, rho_path, primitives, D_t, args):
     else:
         te_MCR = 100 * label_evaluation(te_s, te_l, tree)
 
-    return formula, None, tr_MCR, te_MCR
+    if not args.inc_eval:
+        return formula, None, tr_MCR, te_MCR, None, None
 
 
 # ==============================================================================
@@ -253,26 +190,27 @@ def boosted_trees(tr_s, tr_l, te_s, te_l, rho_path, primitives, D_t, args):
                                       np.multiply(tr_l, pred_labels))))
         D_t = np.true_divide(D_t, sum(D_t))
 
-    tr_MCR = 100 * bdt_evaluation(tr_s, tr_l, trees, weights, numtree)
-    if te_s is None:
-        te_MCR = None
+    if not args.inc_eval:
+        tr_MCR = 100 * bdt_evaluation(tr_s, tr_l, trees, weights, numtree)
+        if te_s is None:
+            te_MCR = None
+
+        else:
+            te_MCR = 100 * bdt_evaluation(te_s, te_l, trees, weights, numtree)
+
+        return formulas, weights, tr_MCR, te_MCR, None, None
 
     else:
-        te_MCR = 100 * bdt_evaluation(te_s, te_l, trees, weights, numtree)
+        tr_MCR_vector, tr_MCR = inc_normal_evaluation(tr_s, tr_l, trees, weights, numtree)
+        # print("Training MCR vector:", 100 * tr_MCR_vector)
+        if te_s is None:
+            te_MCR = None
 
-    return formulas, weights, tr_MCR, te_MCR
+        else:
+            te_MCR_vector, te_MCR = inc_normal_evaluation(te_s, te_l, trees, weights, numtree)
+            # print("Test MCR vector:", 100 * te_MCR_vector)
 
-
-    # tr_MCR_vector, tr_MCR = inc_normal_evaluation(tr_s, tr_l, trees, weights, numtree)
-    # print("Training MCR vector:", 100 * tr_MCR_vector)
-    # if te_s is None:
-    #     te_MCR = None
-    #
-    # else:
-    #     te_MCR_vector, te_MCR = inc_normal_evaluation(te_s, te_l, trees, weights, numtree)
-    #     print("Test MCR vector:", 100 * te_MCR_vector)
-    #
-    # return formulas, weights, 100 * tr_MCR, 100 * te_MCR
+        return formulas, weights, 100 * tr_MCR, 100 * te_MCR, 100 * tr_MCR_vector, 100 * te_MCR_vector
 
 
 
@@ -285,24 +223,25 @@ def learn_formula(tr_s, tr_l, te_s, te_l, args):
     numtree     = args.numtree
     primitives1 = make_stl_primitives1(tr_s)
     primitives2 = make_stl_primitives2(tr_s)
-    primitives  = primitives1 
+    primitives  = primitives1
     rho_path    = [np.inf for signal in tr_s]
     D_t         = np.true_divide(np.ones(len(tr_s)), len(tr_s))
 
     if not inc:     # Non-incremental version
         if numtree == 1:   # No boosted decision trees
-            formula, weight, tr_MCR, te_MCR = single_tree(tr_s, tr_l, te_s, te_l,
+            formula, weight, tr_MCR, te_MCR, tr_MCR_vector, te_MCR_vector = single_tree(tr_s, tr_l, te_s, te_l,
                                     rho_path, primitives, D_t, args)
 
         else:
-            formula, weight, tr_MCR, te_MCR = boosted_trees(tr_s, tr_l, te_s, te_l,
+            formula, weight, tr_MCR, te_MCR, tr_MCR_vector, te_MCR_vector = boosted_trees(tr_s, tr_l, te_s, te_l,
                                     rho_path, primitives, D_t, args)
     else:         # Incremental version
-        formula, weight, tr_MCR, te_MCR = inc_tree(tr_s, tr_l, te_s, te_l, rho_path,
+        formula, weight, tr_MCR, te_MCR, tr_MCR_vector, te_MCR_vector = inc_tree(tr_s, tr_l, te_s, te_l, rho_path,
                                             primitives, D_t, args)
 
 
-    return formula, weight, tr_MCR, te_MCR
+
+    return formula, weight, tr_MCR, te_MCR, tr_MCR_vector, te_MCR_vector
 
 
 # ==============================================================================
@@ -337,18 +276,21 @@ def kfold_learning(filename, args):
     else:
         kf = KFold(n_splits = k_fold)
         train_MCR, test_MCR = [], []
+        tr_MCR_vec, te_MCR_vec = [], []
         formulas, weights = [], []
         for train_index, test_index in kf.split(signals):
             tr_signals  = np.array([signals[i] for i in train_index])
             tr_labels   = np.array([labels[i] for i in train_index])
             te_signals  = np.array([signals[i] for i in test_index])
             te_labels   = np.array([labels[i] for i in test_index])
-            formula, weight, tr_MCR, te_MCR = learn_formula(tr_signals, tr_labels,
+            formula, weight, tr_MCR, te_MCR, tr_MCR_vector, te_MCR_vector = learn_formula(tr_signals, tr_labels,
                                                     te_signals, te_labels, args)
             formulas.append(formula)
             weights.append(weight)
             train_MCR.append(tr_MCR)
             test_MCR.append(te_MCR)
+            tr_MCR_vec.append(tr_MCR_vector)
+            te_MCR_vec.append(te_MCR_vector)
 
         fold_counter = 0
         for f, w, tr, te in zip(formulas, weights, train_MCR, test_MCR):
@@ -359,6 +301,16 @@ def kfold_learning(filename, args):
             print("Weight(s):", w)
             print("Train MCR:", tr)
             print("Test MCR:", te)
+
+        fold_counter = 0
+        if args.inc or  args.inc_eval:
+            for tr_v, te_v in zip(tr_MCR_vec, te_MCR_vec):
+                fold_counter = fold_counter + 1
+                print('***********************************************************')
+                print("Fold {}:".format(fold_counter))
+                print("Train MCR Vector:", tr_v)
+                print("Test MCR Vector:", te_v)
+
 
         print('***********************************************************')
         print("Average training error:", sum(train_MCR)/float(k_fold))
@@ -382,20 +334,12 @@ def kfold_cross_validation(filename, args):
     t0 = time.time()
     k_fold = args.fold
     kf = KFold(n_splits = k_fold)
-    # candidate_depths = [1, 2, 3]
-    # candidate_numtrees = [1, 2, 3, 4]
-    # candidate_k_max = [15, 30]
-    # candidate_num_particles = [15, 30]
-    candidate_depths = [3]
-    candidate_numtrees = [4]
-    candidate_k_max = [30]
+    candidate_depths = [1, 2, 3]
+    candidate_numtrees = [1, 2, 3, 4]
+    candidate_k_max = [15, 30]
     candidate_num_particles = [15, 30]
 
     parameters = []
-    # pickle_parameters = []
-    # pickle_out = open("cross_validation_10_naval.pickle","wb")
-    # pickle.dump(pickle_parameters, pickle_out)
-    # pickle_out.close()
     for depth in candidate_depths:
         for numtree in candidate_numtrees:
             for k_max in candidate_k_max:
@@ -420,14 +364,6 @@ def kfold_cross_validation(filename, args):
 
                     error = sum(test_MCR)/float(k_fold)
                     parameters.append([error, depth, numtree, k_max, num_particles])
-                    pickle_in = open("cross_validation_10_naval.pickle","rb")
-                    pickle_parameters = pickle.load(pickle_in)
-                    pickle_parameters.append([error, depth, numtree, k_max, num_particles])
-                    pickle_in.close()
-                    pickle_out = open("cross_validation_10_naval.pickle","wb")
-                    pickle.dump(pickle_parameters, pickle_out)
-                    pickle_out.close()
-
 
     best_error, best_depth, best_numtree, best_k_max, best_num_particles = min(parameters, key=lambda x: x[0])
 
@@ -458,6 +394,8 @@ def get_argparser():
                         default = 1, help='Number of decision trees')
     parser.add_argument('-i', '--inc', metavar='I', type=int,
                         default=0, help='Incremental or Non-incremental')
+    parser.add_argument('-ie', '--inc_eval', metavar='IE', type=int,
+                        default=0, help='Incremental or Non-incremental Evaluation')
     parser.add_argument('-k', '--fold', metavar='K', type=int,
                         default=0, help='K-fold cross-validation')
     parser.add_argument('-k_max', '--k_max', metavar='KMAX', type=int,
