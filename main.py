@@ -253,12 +253,6 @@ def kfold_learning(filename, args):
     labels          = mat_data['labels'][0]
     signals         = mat_data['data']
     signals_shape   = signals.shape
-    # Shuffling the data:
-    # temp = list(zip(signals, labels))
-    # random.shuffle(temp)
-    # res1, res2 = zip(*temp)
-    # signals = list(res1)
-    # labels = list(res2)
     print('***************************************************************')
     print('(Number of signals, dimension, timepoints):', signals_shape)
 
@@ -402,8 +396,8 @@ def get_argparser():
                         default = 15, help='k_max in pso')
     parser.add_argument('-n_p', '--num_particles', metavar='NP', type=int,
                         default = 15, help='Number of particles in pso')
-    parser.add_argument('optimization', choices=['milp', 'pso'], nargs='?',
-                        default='pso', help='optimization type')
+    # parser.add_argument('optimization', choices=['milp', 'pso'], nargs='?',
+    #                     default='pso', help='optimization type')
     parser.add_argument('file', help='.mat file containing the data')
     return parser
 

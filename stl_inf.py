@@ -5,7 +5,6 @@
 
 from stl_syntax import Formula, AND, OR, NOT, satisfies, robustness, GT
 import numpy as np
-from milp import PrimitiveMILP
 from pso_test import run_pso_optimization
 from pso import compute_robustness
 from stl_prim import set_stl1_pars, set_stl2_pars
@@ -67,7 +66,6 @@ class DTree(object):        # Decission tree recursive structure
 # ------------------------------------------------------------------------------
 # ==============================================================================
 def build_tree(signals, labels, rho_path, depth, primitives, D_t, args):
-    opt_type = args.optimization
 
     # Check stopping conditions
     if (depth <= 0) or (len(signals) == 0):
@@ -90,12 +88,9 @@ def build_tree(signals, labels, rho_path, depth, primitives, D_t, args):
 
 
 
-    if opt_type == 'milp':
-        prim, impurity, rhos = best_prim_milp(signals, labels, rho_path,
-                                                                primitives, D_t)
-    else:
-        prim, impurity, rhos = best_prim_pso(signals, labels, rho_path,
-                                                        primitives, D_t, args)
+
+    prim, impurity, rhos = best_prim_pso(signals, labels, rho_path, primitives,
+                                                                    D_t, args)
     # Check for EVENTUALLY primitives
     counter = 0
     reverse_counter = 0
@@ -145,39 +140,6 @@ def build_tree(signals, labels, rho_path, depth, primitives, D_t, args):
                 primitives, unsat_weights, args)
 
     return tree
-
-
-# ==============================================================================
-# ------------------------------------------------------------------------------
-# ==============================================================================
-
-def best_prim_milp(signals, labels, rho_path, primitives, D_t):
-    opt_prims = []
-    for primitive in primitives:
-        primitive = primitive.copy()
-        print('***************************************************************')
-        print("candidate primitive:", primitive)
-        if primitive.rel == GT:
-            milp = PrimitiveMILP(signals, labels, None, rho_path, D_t,
-                   primitive.index)
-
-        else:
-            milp = PrimitiveMILP(-signals, labels, None, rho_path, D_t,
-                   primitive.index)
-        milp.impurity_optimization(signal_dimension = primitive.index)
-        milp.model.optimize()
-        pi          = milp.get_threshold()
-        [t0, t1]    = milp.get_interval()
-        if primitive.rel == GT:
-            params = [pi, t0, t1]
-        else:
-            params = [-pi, t0, t1]
-        # params = [pi, t0, t1]
-        primitive   = set_stl1_pars(primitive, params)
-        rhos        = milp.get_robustnesses()
-        opt_prims.append([primitive, milp.model.objVal, rhos])
-
-    return min(opt_prims, key=lambda x: x[1])
 
 
 # ==============================================================================
