@@ -396,8 +396,6 @@ def get_argparser():
                         default = 15, help='k_max in pso')
     parser.add_argument('-n_p', '--num_particles', metavar='NP', type=int,
                         default = 15, help='Number of particles in pso')
-    # parser.add_argument('optimization', choices=['milp', 'pso'], nargs='?',
-    #                     default='pso', help='optimization type')
     parser.add_argument('file', help='.mat file containing the data')
     return parser
 
