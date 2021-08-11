@@ -14,6 +14,33 @@ The table size is n*T^3, where T is the number of samples per trace and n is the
 dimension of the signal.
 '''
 
+def trace_robustness_order1_lkt_1d(trace):
+    '''Computes the lookup table associates with first-order primitives for an
+    one-dimensional trace.
+    '''
+    T = len(trace)
+    # create lookup table
+    slk = np.full((T, T), np.inf, dtype=np.float32)
+    # initialize first line
+    slk[0] = trace
+    for i in range(1, T):
+        n = T-i
+        slk[i, :n] = np.minimum(slk[i-1, :n], slk[i-1, 1:n+1])
+    return slk
+
+def trace_robustness_order1_lkt_nd(trace):
+    '''Computes the lookup table associates with first-order primitives for an
+    n-dimensional trace.
+    '''
+    return np.array([trace_robustness_order1_lkt_1d(tr) for tr in trace],
+                    dtype=np.float32)
+
+def traces_robustness_order1_lkt(traces):
+    return np.array([trace_robustness_order1_lkt_nd(tr) for tr in traces],
+                     dtype=np.float32)
+
+#------
+
 def trace_robustness_lkt_1d(trace):
     '''Computes the lookup table for an one-dimensional trace.'''
     T = len(trace)
