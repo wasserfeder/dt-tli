@@ -97,14 +97,14 @@ class Non_Inc_Main(object):
 
     ### Learning method for the non-incremental framework
     def non_inc_learning(self, data):
-        tr_s, tr_l = data["tr_s"], data["tr_l"]
+        tr_s, tr_t, tr_l, te_s = data["tr_s"], data["tr_t"], data["tr_l"], data["te_s"]
         D_t = np.true_divide(np.ones(len(tr_s)), len(tr_s))
         rho_path = [np.inf for signal in tr_s]
         trees, formulas  = [None] * self.numtree, [None] * self.numtree
         weights, epsilon = [0] * self.numtree, [0] * self.numtree
         prunes = [None] * self.numtree
 
-        learning = Learning_Class(self.primitives, self.args)   
+        learning = Learning_Class(self.primitives, self.args)
 
         t = 0
         while t < self.numtree:
@@ -115,9 +115,9 @@ class Non_Inc_Main(object):
                                     root_info, self.depth, D_t)
             else:
                 trees[t] = learning.normal_tree(data, rho_path, self.depth, D_t)
-            rhos = [trees[t].tree_robustness(signal, np.inf) for signal in tr_s]  # # TODO: needs edit
+            rhos = [trees[t].tree_robustness(trace, np.inf) for trace in tr_t]
             formulas[t] = trees[t].get_formula()
-            pred_labels = np.array([trees[t].classify(signal) for signal in tr_s])
+            pred_labels = np.array([trees[t].classify(trace) for trace in tr_t])
             for i in range(len(tr_s)):
                 if tr_l[i] != pred_labels[i]:
                     epsilon[t] = epsilon[t] + D_t[i]
@@ -143,6 +143,28 @@ class Non_Inc_Main(object):
 
         return learning_dict
 
+
+    def bdt_evaluation(self, data, trees, weights, phase):
+        if phase == 'train':
+            traces, labels = data["tr_t"], data["tr_l"]
+        else:
+            traces, labels = data["te_t"], data["te_l"]
+        test = np.zeros(len(traces))
+        for i in range(self.numtree):
+            test = test + weights[i] * np.array([trees[i].classify(trace)
+                                                            for trace in traces])
+
+        test = np.sign(test)
+        return np.count_nonzero(labels - test) / float(len(labels))
+
+
+    def show_results(self):
+        for k in range(self.kfold):
+            print("Fold {}:".format(k + 1))
+            print("Formula:", self.learning_results[k]['formulas'].__str__())
+            print("Weight(s):", self.learning_results[k]['weights'])
+            print("Train MCR:", self.learning_results[k]['tr_MCR'])
+            print("Test MCR:", self.learning_results[k]['te_MCR'])
 
 
 
@@ -239,6 +261,7 @@ def get_path(f):
 if __name__ == '__main__':
     args = get_argparser().parse_args()
     non_inc_class = Non_Inc_Main(args)
+    non_inc_class.show_results()
 
     dt = time.time() - non_inc_class.time_init
     print("Runtime:", dt)

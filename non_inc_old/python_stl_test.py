@@ -1,7 +1,7 @@
 
 
 import sys
-sys.path.append("/home/erfan/iitchs/catl_planning/python-stl/stl")
+sys.path.append("/home/erfan/Documents/University/Projects/Learning_Specifications/python-stl/stl")
 from stl import STLFormula, Operation, RelOperation, Trace
 import copy
 from stl_prim import STL_Param_Setter
@@ -11,10 +11,13 @@ from pso_test import get_indices
 
 i = 1
 j = 2
+k = 3
 pred_1 = STLFormula(Operation.PRED, relation= RelOperation.GT, variable='x_{}'.format(i), threshold=10)
 pred_2 = STLFormula(Operation.PRED, relation= RelOperation.GT, variable='x_{}'.format(j), threshold=20)
-pred = STLFormula(Operation.AND, children = [pred_1, pred_2])
+pred_3 = STLFormula(Operation.PRED, relation= RelOperation.LE, variable='x_{}'.format(k), threshold=5)
+pred = STLFormula(Operation.AND, children = [pred_1, pred_2, pred_3])
 alw = STLFormula(Operation.ALWAYS, low=6, high=9, child=pred)
+print(alw.variables())
 unt = STLFormula(Operation.UNTIL, low=5, high=7, left = pred, right=pred)
 eve_alw = STLFormula(Operation.EVENT, low=1, high=2, child=alw)
 # print(copy.deepcopy(alw))
@@ -41,5 +44,5 @@ eve_alw = STLFormula(Operation.EVENT, low=1, high=2, child=alw)
 # print(eve_alw)
 
 
-indices = get_indices(alw, [])
-print(indices)
+# indices = get_indices(alw, [])
+# print(indices)

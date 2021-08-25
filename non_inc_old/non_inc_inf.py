@@ -7,6 +7,7 @@ import numpy as np
 from pso_test import run_pso_optimization
 from pso import compute_robustness
 from stl_prim import STL_Param_Setter
+from stl import STLFormula, Operation
 
 import copy
 
@@ -15,51 +16,43 @@ import copy
 # ------------------------------------------------------------------------------
 # ==============================================================================
 
-class DTree(object):        # Decission tree recursive structure
-    def __init__(self, primitive, signals, left=None, right=None):
+class DTree(object):        # Decision tree recursive structure
+    def __init__(self, primitive, left=None, right=None):
         self.primitive = primitive
-        self.signals = signals
         self.left = left
         self.right = right
 
 
-    def classify(self, signal):
-        if satisfies(self.primitive, signal):
+    def classify(self, trace):
+        rho = self.primitive.robustness(trace, 0)
+        if rho >= 0:
             if self.left is None:
                 return 1
             else:
-                return self.left.classify(signal)
+                return self.left.classify(trace)
         else:
             if self.right is None:
                 return -1
             else:
-                return self.right.classify(signal)
+                return self.right.classify(trace)
 
-    def tree_robustness(self, signal, rho_path):
-        pi = self.primitive.pi
-        t0 = self.primitive.t0
-        t1 = self.primitive.t1
-        if self.primitive.type == 1:
-            params = [pi, t0 ,t1]
-        else:
-            params = [pi, t0 ,t1, self.primitive.t3]
-        rho = compute_robustness(signal, params, self.primitive, rho_path)
+    def tree_robustness(self, trace, rho_path):
+        rho = compute_robustness(trace, self.primitive, rho_path)
         if self.left is None:
             return rho
         elif rho >= 0 and self.left is not None:
-            return self.left.tree_robustness(signal, rho)
+            return self.left.tree_robustness(trace, rho)
         else:
-            return self.right.tree_robustness(signal, -rho)
-
+            return self.right.tree_robustness(trace, -rho)
 
 
     def get_formula(self):
         left = self.primitive
-        right = Formula(NOT, [self.primitive])
+        right = STLFormula(Operation.NOT, child = self.primitive)
         if self.left is not None:
-            left = Formula(AND, [self.primitive, self.left.get_formula()])
+            left = STLFormula(Operation.AND, children = [self.primitive, self.left.get_formula()])
         if self.right is not None and self.left is not None:
-            return Formula(OR, [left, Formula(AND, [right, self.right.get_formula()])])
+            return STLFormula(Operation.OR, children = [left, STLFormula(Operation.AND, children = [right, self.right.get_formula()])])
         else:
             return left
 
@@ -80,12 +73,12 @@ class Learning_Class(object):
         if (depth <= 0) or (len(signals) == 0):
             return None
 
-        info = self.best_prim_pso(data, rho_path, D_t)
+        info = self.best_prim(data, rho_path, D_t)
         prim, impurity, rhos = info['primitive'], info['impurity'], info['rhos']
         print('***************************************************************')
-        print('Primitive:', prim)
+        print('Primitive:', prim.__str__())
         print('impurity:', impurity)
-        tree = DTree(prim, signals)
+        tree = DTree(prim)
 
         sat_signals, unsat_signals  = [], []
         sat_traces, unsat_traces    = [], []
@@ -191,7 +184,7 @@ class Learning_Class(object):
             opt_prims.append([primitive, impurity, rhos])
 
         prim, impurity, rhos =  min(opt_prims, key=lambda x: x[1])
-        # Check for EVENTUALLY primitives
+        # Check for EVENTUALLY primitives           # # TODO: Include negation of formulas in here
         # counter = 0
         # reverse_counter = 0
         # for i in range(len(signals)):

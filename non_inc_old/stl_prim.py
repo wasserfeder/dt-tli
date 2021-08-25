@@ -19,9 +19,9 @@ def make_stl_primitives2(signals):
 
 
 
-def reverse_prim(primitive):
-    
-
+# def reverse_prim(primitive):
+#
+#
 
 
 class STL_Param_Setter(object): # Done
