@@ -11,6 +11,7 @@ from stl_prim import set_stl1_pars, set_stl2_pars, reverse_primitive, set_combin
 from stl import STLFormula, Operation
 import copy
 from combined_pso_test import run_combined_pso
+from combined_pso import compute_combined_robustness
 
 # ==============================================================================
 # ------------------------------------------------------------------------------
@@ -19,22 +20,75 @@ from combined_pso_test import run_combined_pso
 class DTree(object):        # Decission tree recursive structure
     def __init__(self, primitive, left=None, right=None):
         self.primitive = primitive
+        self.primitive_type = self.get_primitive_type(self.primitive)
+        self.params = self.get_primitive_parameters(self.primitive)
         self.left = left
         self.right = right
 
 
-    def classify(self, trace):
-        rho = self.primitive.robustness(trace, 0)
-        if rho >= 0:
+    def classify(self, signal):
+        if self.primitive_type == 1 or self.primitive_type == 2:
+            rho = compute_robustness([signal], self.params, self.primitive, self.primitive_type, [np.inf])
+        else:
+            rho = compute_combined_robustness([signal], self.params, self.primitive, self.primitive_type, [np.inf])
+        if rho[0] >= 0:
             if self.left is None:
                 return 1
             else:
-                return self.left.classify(trace)
+                return self.left.classify(signal)
         else:
             if self.right is None:
                 return -1
             else:
-                return self.right.classify(trace)
+                return self.right.classify(signal)
+
+    # def classify(self, trace):
+    #     rho = self.primitive.robustness(trace, 0)
+    #     if rho >= 0:
+    #         if self.left is None:
+    #             return 1
+    #         else:
+    #             return self.left.classify(trace)
+    #     else:
+    #         if self.right is None:
+    #             return -1
+    #         else:
+    #             return self.right.classify(trace)
+
+
+    def get_primitive_type(self, primitive):
+        if primitive.op == 6 or primitive.op == 7:
+            if primitive.child.op == 8:
+                primitive_type = 1
+            elif primitive.child.op == 6 or primitive.child.op == 7:
+                primitive_type = 2
+            elif primitive.child.op == 3:
+                if primitive.op == 6:
+                    primitive_type = 3
+                else:
+                    primitive_type = 4
+            return primitive_type
+
+
+    def get_primitive_parameters(self, primitive):
+        t0, t1 = int(primitive.low), int(primitive.high)
+        if self.primitive_type == 1:
+            threshold = primitive.child.threshold
+            params = [threshold, t0, t1]
+        elif self.primitive_type == 2:
+            threshold = primitive.child.child.threshold
+            t3 = int(primitive.child.high)
+            params = [threshold, t0, t1, t3]
+        elif self.primitive_type == 3 or 4:
+            children = primitive.child.children
+            params = []
+            for child in children:
+                params += [child.threshold]
+            params += [t0, t1]
+        return params
+
+
+
 
     def tree_robustness(self, trace, rho_path):
         rho_primitive = self.primitive.robustness(trace, 0)
@@ -200,8 +254,9 @@ def best_prim(signals, traces, labels, rho_path, primitives, D_t, args):
         else:
             primitive = set_stl2_pars(primitive, params)
 
-        rhos = np.array([compute_robustness(traces[i], params, primitive, primitive_type,
-                                    rho_path[i]) for i in range(len(signals))])
+        # rhos = np.array([compute_robustness(traces[i], params, primitive, primitive_type,
+        #                             rho_path[i]) for i in range(len(signals))])
+        rhos = np.array(compute_robustness(signals, params, primitive, primitive_type, rho_path))
         opt_prims.append([primitive, impurity, rhos])
 
     prim, impurity, rhos =  min(opt_prims, key=lambda x: x[1])
@@ -270,7 +325,8 @@ def best_combined_prim(signals, traces, labels, rho_path, combined_prim, D_t, ar
     params, impurity = run_combined_pso(signals, traces, labels, rho_path, combined_prim, primitive_type, D_t, args)
 
     prim = set_combined_stl_pars(combined_prim, primitive_type, params)
-    rhos = [np.min([prim.robustness(traces[i],0), rho_path[i]]) for i in range(len(signals))]
+    rhos = compute_combined_robustness(signals, params, prim, primitive_type, rho_path)
+    # rhos = [np.min([prim.robustness(traces[i],0), rho_path[i]]) for i in range(len(signals))]
     print('***************************************************************')
     print("best combined primitive:", prim)
     print("combined primitive impurity:", impurity)

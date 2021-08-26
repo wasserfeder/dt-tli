@@ -9,6 +9,18 @@ from pso import pso_costFunc, PSO
 # from stl_syntax import GT, LE
 
 
+def run_pso_optimization(signals, traces, labels, rho_path, primitive, primitive_type, D_t, args):
+    if primitive_type == 1:
+        signal_dimension = int(primitive.child.variable.split("_")[1])
+    else:
+        signal_dimension = int(primitive.child.child.variable.split("_")[1])
+    bounds = get_bounds(signals, signal_dimension)
+    particle_swarm = PSO(signals, traces, labels, bounds, primitive, primitive_type, args)
+    params, impurity = particle_swarm.optimize_swarm(rho_path, D_t)
+    return params, impurity
+
+
+
 def get_bounds(signals, signal_dimension=0):
     k = signal_dimension
     min_signals = []
@@ -21,19 +33,6 @@ def get_bounds(signals, signal_dimension=0):
     max_t = len(signals[0][0]) - 1
     bounds = [min_pi, max_pi, max_t]
     return bounds
-
-
-
-def run_pso_optimization(signals, traces, labels, rho_path, primitive, primitive_type, D_t, args):
-    if primitive_type == 1:
-        signal_dimension = int(primitive.child.variable.split("_")[1])
-    else:
-        signal_dimension = int(primitive.child.child.variable.split("_")[1])
-    bounds = get_bounds(signals, signal_dimension)
-    particle_swarm = PSO(signals, traces, labels, bounds, primitive, primitive_type, args)
-    params, impurity = particle_swarm.optimize_swarm(rho_path, D_t)
-    return params, impurity
-
 
 
 

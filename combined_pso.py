@@ -3,12 +3,45 @@ import random
 from numpy import linalg as LA
 from stl_prim import set_stl1_pars, set_stl2_pars, set_combined_stl_pars
 import copy
+# from combined_pso_test import get_indices
 
 
-def compute_robustness(trace, params, primitive, primitive_type, rho_path):
-    primitive = set_combined_stl_pars(primitive, primitive_type, params)
-    rho_primitive = primitive.robustness(trace, 0)
-    return np.min([rho_primitive, rho_path])
+# def compute_robustness(trace, params, primitive, primitive_type, rho_path):
+#     primitive = set_combined_stl_pars(primitive, primitive_type, params)
+#     rho_primitive = primitive.robustness(trace, 0)
+#     return np.min([rho_primitive, rho_path])
+
+def get_indices(primitive, primitive_type):
+    if primitive_type == 3 or primitive_type == 4:
+        children = primitive.child.children
+        signal_indices = [int(children[i].variable.split("_")[1]) for i in range(len(children))]
+
+    return signal_indices
+
+
+def compute_combined_robustness(signals, position, primitive, primitive_type, rho_path):
+    rhos = [0] * len(signals)
+    if primitive_type == 3 or primitive_type == 4:
+        indices = get_indices(primitive, primitive_type)
+        children = primitive.child.children
+        t0, t1 = int(position[-2]), int(position[-1])
+        for i in range(len(signals)):
+            rho_primitive = []
+            for t in range(t0, t1+1):
+                rho_predicates = [0] * len(indices)
+                for k in range(len(indices)):
+                    if children[k].relation == 2:
+                        rho_predicates[k] = position[k] - signals[i][indices[k]][t]
+                    else:
+                        rho_predicates[k] = signals[i][indices[k]][t] - position[k]
+                rho_primitive.append(np.min(rho_predicates))
+            if primitive_type == 3:
+                rhos[i] = min(max(rho_primitive),rho_path[i])
+            else:
+                rhos[i] = min(min(rho_primitive), rho_path[i])
+        return rhos
+
+
 
 
 def pso_costFunc(position, signals, traces, labels, primitive, primitive_type, rho_path, D_t):
@@ -22,7 +55,8 @@ def pso_costFunc(position, signals, traces, labels, primitive, primitive_type, r
     S_false_pos, S_false_neg = [], []
 
     primitive = copy.deepcopy(primitive)
-    rhos = [compute_robustness(traces[i], position, primitive, primitive_type, rho_path[i]) for i in range(len(signals))]
+    # rhos = [compute_robustness(traces[i], position, primitive, primitive_type, rho_path[i]) for i in range(len(signals))]
+    rhos = compute_combined_robustness(signals, position, primitive, primitive_type, rho_path)
     for i in range(len(signals)):
         if rhos[i] >= 0:
             S_true.append(i)

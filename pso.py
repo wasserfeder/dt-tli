@@ -5,13 +5,37 @@ from stl_prim import set_stl1_pars, set_stl2_pars
 import copy
 
 
-def compute_robustness(trace, params, primitive, primitive_type, rho_path):
+def compute_robustness(signals, params, primitive, primitive_type, rho_paths):
+    rhos = [0] * len(signals)
     if primitive_type == 1:
-        primitive = set_stl1_pars(primitive, params)
-    else:
-        primitive = set_stl2_pars(primitive, params)
-    rho_primitive = primitive.robustness(trace, 0)
-    return np.min([rho_primitive, rho_path])
+        index = int(primitive.child.variable.split("_")[1])
+        threshold = params[0]
+        t0, t1 = int(params[1]), int(params[2])
+        if primitive.op == 6:
+            if primitive.child.relation == 2:
+                for i in range(len(signals)):
+                    rhos[i] = np.min([np.max([threshold - signals[i][index][t] for t in range(t0, t1+1)]), rho_paths[i]])
+            else:
+                for i in range(len(signals)):
+                    rhos[i] = np.min([np.max([signals[i][index][t] - threshold for t in range(t0, t1+1)]), rho_paths[i]])
+        else:
+            if primitive.child.relation == 2:
+                for i in range(len(signals)):
+                    rhos[i] = np.min([np.min([threshold - signals[i][index][t] for t in range(t0, t1+1)]), rho_paths[i]])
+            else:
+                for i in range(len(signals)):
+                    rhos[i] = np.min([np.min([signals[i][index][t] - threshold for t in range(t0, t1+1)]), rho_paths[i]])
+        return rhos
+
+
+
+# def compute_robustness(trace, params, primitive, primitive_type, rho_path):
+#     if primitive_type == 1:
+#         primitive = set_stl1_pars(primitive, params)
+#     else:
+#         primitive = set_stl2_pars(primitive, params)
+#     rho_primitive = primitive.robustness(trace, 0)
+#     return np.min([rho_primitive, rho_path])
 
 
 def pso_costFunc(position, signals, traces, labels, primitive, primitive_type, rho_path, D_t):
@@ -31,7 +55,8 @@ def pso_costFunc(position, signals, traces, labels, primitive, primitive_type, r
     S_false_pos, S_false_neg = [], []
 
     primitive = copy.deepcopy(primitive)
-    rhos = [compute_robustness(traces[i], position, primitive, primitive_type, rho_path[i]) for i in range(len(signals))]
+    # rhos = [compute_robustness(traces[i], position, primitive, primitive_type, rho_path[i]) for i in range(len(signals))]
+    rhos = compute_robustness(signals, position, primitive, primitive_type, rho_path)
     for i in range(len(signals)):
         if rhos[i] >= 0:
             S_true.append(i)

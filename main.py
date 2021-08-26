@@ -26,8 +26,10 @@ from stl_inf import best_prim
 def bdt_evaluation(signals, traces, labels, trees, weights, numtree):
     test = np.zeros(len(signals))
     for i in range(numtree):
-        test = test + weights[i] * np.array([trees[i].classify(trace)
-                                                        for trace in traces])
+        # test = test + weights[i] * np.array([trees[i].classify(trace)
+        #                                                 for trace in traces])
+        test = test + weights[i] * np.array([trees[i].classify(signal)
+                                                        for signal in signals])
 
     test = np.sign(test)
     return np.count_nonzero(labels - test) / float(len(labels))
@@ -54,9 +56,10 @@ def boosted_trees(tr_s, tr_t, tr_l, te_s, te_t, te_l, rho_path, primitives, D_t,
             trees[t], prunes[t] = pruned_tree(tr_s, tr_t, tr_l, rho_path, depth, root_prim, root_impurity, root_rhos, primitives, D_t, args, prune_record)
         else:
             trees[t] = normal_tree(tr_s, tr_t, tr_l, rho_path, depth, primitives, D_t, args)
-        rhos = [trees[t].tree_robustness(trace, np.inf) for trace in tr_t]
+        # rhos = [trees[t].tree_robustness(trace, np.inf) for trace in tr_t]
         formulas[t] = trees[t].get_formula()
-        pred_labels = np.array([trees[t].classify(trace) for trace in tr_t])
+        # pred_labels = np.array([trees[t].classify(trace) for trace in tr_t])
+        pred_labels = np.array([trees[t].classify(signal) for signal in tr_s])
         for i in range(len(tr_s)):
             if tr_l[i] != pred_labels[i]:
                 epsilon[t] = epsilon[t] + D_t[i]
@@ -65,11 +68,15 @@ def boosted_trees(tr_s, tr_t, tr_l, te_s, te_t, te_l, rho_path, primitives, D_t,
             weights[t] = 0.5 * np.log(1/epsilon[t] - 1)
         else:
             weights[t] = M
+        print('***********************************************************')
+        print("Epsilon:", epsilon[t])
         if epsilon[t] <= 0.5:
             D_t = np.multiply(D_t, np.exp(np.multiply(-weights[t],
                                       np.multiply(tr_l, pred_labels))))
             D_t = np.true_divide(D_t, sum(D_t))
             t = t + 1
+        else:
+            epsilon[t] = 0
 
 
     tr_MCR = 100 * bdt_evaluation(tr_s, tr_t, tr_l, trees, weights, numtree)
@@ -79,7 +86,7 @@ def boosted_trees(tr_s, tr_t, tr_l, te_s, te_t, te_l, rho_path, primitives, D_t,
     else:
         te_MCR = 100 * bdt_evaluation(te_s, te_t, te_l, trees, weights, numtree)
 
-    return formulas, weights, tr_MCR, te_MCR
+    return formulas, weights, prunes, tr_MCR, te_MCR
 
 
 # ==============================================================================
@@ -88,10 +95,10 @@ def boosted_trees(tr_s, tr_t, tr_l, te_s, te_t, te_l, rho_path, primitives, D_t,
 def learn_formula(tr_s, tr_t, tr_l, primitives, args, te_s = None, te_t = None, te_l = None):
     rho_path    = [np.inf for signal in tr_s]
     D_t         = np.true_divide(np.ones(len(tr_s)), len(tr_s))
-    formula, weight, tr_MCR, te_MCR = boosted_trees(tr_s, tr_t, tr_l, te_s, te_t, te_l,
+    formula, weight, prunes, tr_MCR, te_MCR = boosted_trees(tr_s, tr_t, tr_l, te_s, te_t, te_l,
                                     rho_path, primitives, D_t, args)
 
-    return formula, weight, tr_MCR, te_MCR
+    return formula, weight, prunes, tr_MCR, te_MCR
 
 
 # ==============================================================================
@@ -120,9 +127,11 @@ def kfold_learning(filename, args):
     primitives  = primitives1
 
     if k_fold <= 1:     # No cross-validation
-        formula, weight, tr_MCR, te_MCR = learn_formula(signals, traces, labels, primitives, args)
+        formula, weight, prunes, tr_MCR, te_MCR = learn_formula(signals, traces, labels, primitives, args)
         print('***************************************************************')
         print("Formula:", formula)
+        if args.prune:
+            print("Pruning Record:", prunes)
         print("Train MCR:", tr_MCR)
         dt = time.time() - t0
         print('Runtime:', dt)
@@ -130,7 +139,7 @@ def kfold_learning(filename, args):
     else:
         kf = KFold(n_splits = k_fold)
         train_MCR, test_MCR = [], []
-        formulas, weights = [], []
+        formulas, weights, prunes = [], [], []
         fold_counter = 0
         for train_index, test_index in kf.split(signals):
             tr_signals  = np.array([signals[i] for i in train_index])
@@ -143,20 +152,23 @@ def kfold_learning(filename, args):
             print('***********************************************************')
             print("Fold {}:".format(fold_counter))
             print('***********************************************************')
-            formula, weight, tr_MCR, te_MCR = learn_formula(tr_signals, tr_traces, tr_labels,
+            formula, weight, prune, tr_MCR, te_MCR = learn_formula(tr_signals, tr_traces, tr_labels,
                                                     primitives, args, te_signals, te_traces, te_labels)
             formulas.append(formula)
             weights.append(weight)
+            prunes.append(prune)
             train_MCR.append(tr_MCR)
             test_MCR.append(te_MCR)
 
         fold_counter = 0
-        for f, w, tr, te in zip(formulas, weights, train_MCR, test_MCR):
+        for f, w, p, tr, te in zip(formulas, weights, prunes, train_MCR, test_MCR):
             fold_counter = fold_counter + 1
             print('***********************************************************')
             print("Fold {}:".format(fold_counter))
             print("Formula:", f)
             print("Weight(s):", w)
+            if args.prune:
+                print("Pruning Record:", p)
             print("Train MCR:", tr)
             print("Test MCR:", te)
         print('***********************************************************')
