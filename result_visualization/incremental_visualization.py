@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 plt.rcParams['text.latex.preamble'] = [r'\usepackage{sfmath} \boldmath']
 plt.rcParams['text.usetex'] = True
 plt.rcParams['font.weight'] = 'black'
-plt.rcParams['font.size'] = '16'
+plt.rcParams['font.size'] = '22'
 
 
 def draw_results(carla_data, naval_data):
@@ -105,13 +105,13 @@ def draw_results(carla_data, naval_data):
 
 
     fig, axs = plt.subplots(1, 2)
-    axs[0].plot(carla_time, carla_non_inc, color = 'red', linewidth = 4, label='Non-incremental')
-    axs[0].plot(carla_time, carla_inc, color = 'blue', linewidth = 4, label = 'Incremental')
+    axs[0].plot(carla_time, carla_non_inc, color = 'red', linewidth = 5, label=r'\textbf{Offline}')
+    axs[0].plot(carla_time, carla_inc, color = 'blue', linewidth = 5, label = r'\textbf{Incremental}')
     axs[0].legend(loc = 'lower left')
     axs[0].grid(True)
-    axs[0].set_title("Urban-driving")
-    axs[0].set_ylabel("MCR (\%)")
-    axs[0].set_xlabel("Time (1/60 s)")
+    axs[0].set_title(r'\textbf{Autonomous-driving}')
+    axs[0].set_ylabel(r'\textbf{MCR (\%)}')
+    axs[0].set_xlabel(r'\textbf{Time (1/60 s)}')
     axs[0].set_xticks(np.arange(0, 500, 100))
 
 
@@ -145,12 +145,12 @@ def draw_results(carla_data, naval_data):
         1.35135135,  0.75075075,  0.75075075,  0.75075075,  0.75075075,
         0.75075075])
 
-    axs[1].plot(naval_time, naval_non_inc, color = 'red', linewidth = 4, label='Non-incremental')
-    axs[1].plot(naval_time, naval_inc, color = 'blue', linewidth = 4, label = 'Incremental')
+    axs[1].plot(naval_time, naval_non_inc, color = 'red', linewidth = 4, label=r'\textbf{Offline}')
+    axs[1].plot(naval_time, naval_inc, color = 'blue', linewidth = 4, label = r'\textbf{Incremental}')
     axs[1].legend(loc = 'lower left')
     axs[1].grid(True)
-    axs[1].set_title("Naval")
-    axs[1].set_xlabel("Time (s)")
+    axs[1].set_title(r'\textbf{Naval}')
+    axs[1].set_xlabel(r'\textbf{Time (s)}')
     # axs[1].set_xticks(np.arange(0, 61, 10))
 
     fig.savefig('/home/erfan/Documents/University/Projects/Learning Specifications/dt-tli/Figures/inc.eps', format='eps')

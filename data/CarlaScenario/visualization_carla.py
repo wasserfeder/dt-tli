@@ -1,10 +1,10 @@
 from scipy.io import loadmat, savemat
 import numpy as np
 import matplotlib.pyplot as plt
-# plt.rcParams['text.latex.preamble'] = [r'\usepackage{sfmath} \boldmath']
-# plt.rcParams['text.usetex'] = True
-# plt.rcParams['font.weight'] = 'black'
-# plt.rcParams['font.size'] = '18'
+plt.rcParams['text.latex.preamble'] = [r'\usepackage{sfmath} \boldmath']
+plt.rcParams['text.usetex'] = True
+plt.rcParams['font.weight'] = 'black'
+plt.rcParams['font.size'] = '22'
 
 
 filename = 'carla_scenario_300.mat'
@@ -22,17 +22,21 @@ for i in range(len(labels)):
         neg_indices.append(i)
 
 
+
 positionfig, axs = plt.subplots(2, 2)
 for j in range(2):
     for i in pos_indices:
-        axs[j, 0].plot(timepoints, signals[i][j])
-        axs[j, 0].grid(True)
+        axs[j, 0].plot(timepoints, signals[i][j], color='deepskyblue')
+    for i in neg_indices:
+        axs[j, 0].plot(timepoints, signals[i][j], color='tomato', alpha=0.3)
+    axs[j, 0].grid(True)
 
 
-axs[0, 0].set_title("Positive Signals")
-axs[0, 0].set_ylabel('Relative y (m)')
-axs[1, 0].set_ylabel('Relative z (m)')
-axs[1, 0].set_xlabel('Time')
+# axs[0, 0].set_title("Positive Signals")
+axs[0, 0].set_ylabel(r'\textbf{y (m)}')
+axs[0, 0].set_xlabel(r'\textbf{Time (1/60 s)}')
+axs[1, 0].set_ylabel(r'\textbf{z (m)}')
+axs[1, 0].set_xlabel(r'\textbf{Time (1/60 s)}')
 
 for j in range(2):
     for i in neg_indices:
@@ -51,14 +55,17 @@ axs[1, 1].set_xlabel('Time')
 velfig, axs = plt.subplots(2, 2)
 for j in range(2):
     for i in pos_indices:
-        axs[j, 0].plot(timepoints, signals[i][j + 2])
-        axs[j, 0].grid(True)
+        axs[j, 0].plot(timepoints, signals[i][j + 2], color='deepskyblue')
+    for i in neg_indices:
+        axs[j, 0].plot(timepoints, signals[i][j + 2], color='tomato', alpha=0.3)
+    axs[j, 0].grid(True)
 
 
-axs[0, 0].set_title("Positive Signals")
-axs[0, 0].set_ylabel('Relative v-y (m/s)')
-axs[1, 0].set_ylabel('Relative v-z (m/s)')
-axs[1, 0].set_xlabel('Time')
+# axs[0, 0].set_title("Positive Signals")
+axs[0, 0].set_ylabel(r'\textbf{v-y (m/s)}')
+axs[0, 0].set_xlabel(r'\textbf{Time (1/60 s)}')
+axs[1, 0].set_ylabel(r'\textbf{v-z (m/s)}')
+axs[1, 0].set_xlabel(r'\textbf{Time (1/60 s)}')
 
 for j in range(2):
     for i in neg_indices:
