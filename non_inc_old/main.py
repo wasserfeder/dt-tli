@@ -10,162 +10,172 @@ import argparse
 import os
 import time
 from stl_prim import make_stl_primitives1, make_stl_primitives2
+from stl_inf import normal_tree, pruned_tree
 from sklearn.model_selection import KFold
 import random
 import pickle
-from non_inc_inf import Learning_Class
 import sys
-sys.path.append("/home/erfan/iitchs/catl_planning/python-stl/stl")
+sys.path.append("/home/erfan/Documents/University/Projects/Learning_Specifications/python-stl/stl")
 from stl import Trace
+from stl_inf import best_prim
 
 
 # ==============================================================================
-# ---- Non-Incremental Main ----------------------------------------------
+# ---- Non-Incremental Evaluation ----------------------------------------------
 # ==============================================================================
-class Non_Inc_Main(object):
-    def __init__(self, args):
-        self.args       = args
-        self.filename   = get_path(self.args.file)
-        self.mat_data   = loadmat(self.filename)
-        self.timepoints = self.mat_data['t'][0]
-        self.labels     = self.mat_data['labels'][0]
-        self.signals    = self.mat_data['data']
-        self.num_dimension = len(self.signals[0])
-        self.varnames = ['x_{}'.format(i) for i in range(self.num_dimension)]
-        self.traces = []
-        for i in range(len(self.signals)):
-            data = [self.signals[i][j] for j in range(self.num_dimension)]
-            trace = Trace(self.varnames, self.timepoints, data)
-            self.traces.append(trace)
+def bdt_evaluation(signals, traces, labels, trees, weights, numtree):
+    test = np.zeros(len(signals))
+    for i in range(numtree):
+        # test = test + weights[i] * np.array([trees[i].classify(trace)
+        #                                                 for trace in traces])
+        test = test + weights[i] * np.array([trees[i].classify(signal)
+                                                        for signal in signals])
 
-        self.primitives1    = make_stl_primitives1(self.signals)
-        self.primitives2    = make_stl_primitives2(self.signals)
-        self.primitives     = self.primitives1
-        self.M              = 100
-        signals_shape   = self.signals.shape
-        print('**********************************************************')
-        print('(Number of signals, dimension, timepoints):', signals_shape)
+    test = np.sign(test)
+    return np.count_nonzero(labels - test) / float(len(labels))
 
-        self.time_init  = time.time()
-        self.kfold      = self.args.fold
-        self.depth      = self.args.depth
-        self.numtree    = self.args.numtree
-        self.kfold_data = self.kfold_splitting()
 
-        if self.args.action == 'learn':
-            self.learning_results = self.kfold_learning()
+# ==============================================================================
+# -- Boosted Decision Tree Learning() ------------------------------------------
+# ==============================================================================
+def boosted_trees(tr_s, tr_t, tr_l, te_s, te_t, te_l, rho_path, primitives, D_t, args):
+    depth = args.depth
+    numtree = args.numtree
+    trees, formulas  = [None] * numtree, [None] * numtree
+    prunes = [None] * numtree
+    weights, epsilon = [0] * numtree, [0] * numtree
+    M = 100
+
+    t = 0
+    while t < numtree:
+        print('***********************************************************')
+        print("Tree {}:".format(t+1))
+        if args.prune:
+            root_prim, root_impurity, root_rhos = best_prim(tr_s, tr_t, tr_l, rho_path, primitives, D_t, args)
+            prune_record = []
+            trees[t], prunes[t] = pruned_tree(tr_s, tr_t, tr_l, rho_path, depth, root_prim, root_impurity, root_rhos, primitives, D_t, args, prune_record)
         else:
-            self.learning_results = self.kfold_cross_validation()
+            trees[t] = normal_tree(tr_s, tr_t, tr_l, rho_path, depth, primitives, D_t, args)
+        # rhos = [trees[t].tree_robustness(trace, np.inf) for trace in tr_t]
+        formulas[t] = trees[t].get_formula()
+        # pred_labels = np.array([trees[t].classify(trace) for trace in tr_t])
+        pred_labels = np.array([trees[t].classify(signal) for signal in tr_s])
+        for i in range(len(tr_s)):
+            if tr_l[i] != pred_labels[i]:
+                epsilon[t] = epsilon[t] + D_t[i]
 
-
-    ### method for splitting the signals based on the kfold cross validation
-    def kfold_splitting(self):
-        kfold_data = []
-        if self.kfold <= 1:
-            data_dict = {"tr_s":self.signals,"tr_t":self.traces,
-                        "tr_l": self.labels, "te_s": None, "te_t": None,
-                        "te_l": None}
-            kfold_data.append(data_dict)
+        if epsilon[t] > 0:
+            weights[t] = 0.5 * np.log(1/epsilon[t] - 1)
         else:
-            kf = KFold(n_splits = self.kfold)
-            for tr_index, te_index in kf.split(self.signals):
-                tr_signals  = np.array([self.signals[i] for i in tr_index])
-                tr_traces   = np.array([self.traces[i] for i in tr_index])
-                tr_labels   = np.array([self.labels[i] for i in tr_index])
-                te_signals  = np.array([self.signals[i] for i in te_index])
-                te_traces   = np.array([self.traces[i] for i in te_index])
-                te_labels   = np.array([self.labels[i] for i in te_index])
-                data_dict = {"tr_s":tr_signals,"tr_t":tr_traces,
-                            "tr_l":tr_labels,"te_s": te_signals,
-                            "te_t": te_traces, "te_l": te_labels}
-                kfold_data.append(data_dict)
-        return kfold_data
+            weights[t] = M
+        print('***********************************************************')
+        print("Epsilon:", epsilon[t])
+        if epsilon[t] <= 0.5:
+            D_t = np.multiply(D_t, np.exp(np.multiply(-weights[t],
+                                      np.multiply(tr_l, pred_labels))))
+            D_t = np.true_divide(D_t, sum(D_t))
+            t = t + 1
+        else:
+            epsilon[t] = 0
 
 
-    ### main method for the learning part
-    def kfold_learning(self):
-        learning_results = []
-        for k in range(self.kfold):
+    tr_MCR = 100 * bdt_evaluation(tr_s, tr_t, tr_l, trees, weights, numtree)
+    if te_s is None:
+        te_MCR = None
+
+    else:
+        te_MCR = 100 * bdt_evaluation(te_s, te_t, te_l, trees, weights, numtree)
+
+    return formulas, weights, prunes, tr_MCR, te_MCR
+
+
+# ==============================================================================
+# -- Learn Formula() -----------------------------------------------------------
+# ==============================================================================
+def learn_formula(tr_s, tr_t, tr_l, primitives, args, te_s = None, te_t = None, te_l = None):
+    rho_path    = [np.inf for signal in tr_s]
+    D_t         = np.true_divide(np.ones(len(tr_s)), len(tr_s))
+    formula, weight, prunes, tr_MCR, te_MCR = boosted_trees(tr_s, tr_t, tr_l, te_s, te_t, te_l,
+                                    rho_path, primitives, D_t, args)
+
+    return formula, weight, prunes, tr_MCR, te_MCR
+
+
+# ==============================================================================
+# -- k-fold Learning() ---------------------------------------------------------
+# ==============================================================================
+def kfold_learning(filename, args):
+    mat_data        = loadmat(filename)
+    timepoints      = mat_data['t'][0]
+    labels          = mat_data['labels'][0]
+    signals         = mat_data['data']
+    num_dimension   = len(signals[0])
+    varnames = ['x_{}'.format(i) for i in range(num_dimension)]
+    traces = []
+    for i in range(len(signals)):
+        data = [signals[i][j] for j in range(num_dimension)]
+        trace = Trace(varnames, timepoints, data)
+        traces.append(trace)
+    signals_shape   = signals.shape
+    print('***************************************************************')
+    print('(Number of signals, dimension, timepoints):', signals_shape)
+
+    t0 = time.time()
+    k_fold = args.fold
+    primitives1 = make_stl_primitives1(signals)
+    primitives2 = make_stl_primitives2(signals)
+    primitives  = primitives1
+
+    if k_fold <= 1:     # No cross-validation
+        formula, weight, prunes, tr_MCR, te_MCR = learn_formula(signals, traces, labels, primitives, args)
+        print('***************************************************************')
+        print("Formula:", formula)
+        if args.prune:
+            print("Pruning Record:", prunes)
+        print("Train MCR:", tr_MCR)
+        dt = time.time() - t0
+        print('Runtime:', dt)
+
+    else:
+        kf = KFold(n_splits = k_fold)
+        train_MCR, test_MCR = [], []
+        formulas, weights, prunes = [], [], []
+        fold_counter = 0
+        for train_index, test_index in kf.split(signals):
+            tr_signals  = np.array([signals[i] for i in train_index])
+            tr_traces   = np.array([traces[i] for i in train_index])
+            tr_labels   = np.array([labels[i] for i in train_index])
+            te_signals  = np.array([signals[i] for i in test_index])
+            te_traces   = np.array([traces[i] for i in test_index])
+            te_labels   = np.array([labels[i] for i in test_index])
+            fold_counter = fold_counter + 1
             print('***********************************************************')
-            print("Fold {}".format(k+1))
+            print("Fold {}:".format(fold_counter))
             print('***********************************************************')
-            learning_dict = self.non_inc_learning(self.kfold_data[k])
-            learning_results.append(learning_dict)
+            formula, weight, prune, tr_MCR, te_MCR = learn_formula(tr_signals, tr_traces, tr_labels,
+                                                    primitives, args, te_signals, te_traces, te_labels)
+            formulas.append(formula)
+            weights.append(weight)
+            prunes.append(prune)
+            train_MCR.append(tr_MCR)
+            test_MCR.append(te_MCR)
 
-        return learning_results
-
-
-    ### Learning method for the non-incremental framework
-    def non_inc_learning(self, data):
-        tr_s, tr_t, tr_l, te_s = data["tr_s"], data["tr_t"], data["tr_l"], data["te_s"]
-        D_t = np.true_divide(np.ones(len(tr_s)), len(tr_s))
-        rho_path = [np.inf for signal in tr_s]
-        trees, formulas  = [None] * self.numtree, [None] * self.numtree
-        weights, epsilon = [0] * self.numtree, [0] * self.numtree
-        prunes = [None] * self.numtree
-
-        learning = Learning_Class(self.primitives, self.args)
-
-        t = 0
-        while t < self.numtree:
-            if self.args.prune:
-                root_info = learning.best_prim(data, rho_path, D_t)
-                learning.prunes = []
-                trees[t], prunes[t] = learning.pruned_tree(data, rho_path,
-                                    root_info, self.depth, D_t)
-            else:
-                trees[t] = learning.normal_tree(data, rho_path, self.depth, D_t)
-            rhos = [trees[t].tree_robustness(trace, np.inf) for trace in tr_t]
-            formulas[t] = trees[t].get_formula()
-            pred_labels = np.array([trees[t].classify(trace) for trace in tr_t])
-            for i in range(len(tr_s)):
-                if tr_l[i] != pred_labels[i]:
-                    epsilon[t] = epsilon[t] + D_t[i]
-
-            if epsilon[t] > 0 and (epsilon[t] <= 0.5):
-                weights[t] = 0.5 * np.log(1/epsilon[t] - 1)
-            else:
-                weights[t] = self.M
-
-            if epsilon[t] <= 0.5:
-                D_t = np.multiply(D_t, np.exp(np.multiply(-weights[t],
-                                        np.multiply(tr_l, pred_labels))))
-                D_t = np.true_divide(D_t, sum(D_t))
-                t = t + 1
-
-        tr_MCR = 100 * self.bdt_evaluation(data, trees, weights, 'train')
-        if te_s is None:
-            te_MCR = None
-        else:
-            te_MCR = 100 * self.bdt_evaluation(data, trees, weights, 'test')
-        learning_dict = {'trees': trees, 'formulas': formulas,
-            'weights': weights, 'tr_MCR': tr_MCR, 'te_MCR': te_MCR}
-
-        return learning_dict
-
-
-    def bdt_evaluation(self, data, trees, weights, phase):
-        if phase == 'train':
-            traces, labels = data["tr_t"], data["tr_l"]
-        else:
-            traces, labels = data["te_t"], data["te_l"]
-        test = np.zeros(len(traces))
-        for i in range(self.numtree):
-            test = test + weights[i] * np.array([trees[i].classify(trace)
-                                                            for trace in traces])
-
-        test = np.sign(test)
-        return np.count_nonzero(labels - test) / float(len(labels))
-
-
-    def show_results(self):
-        for k in range(self.kfold):
-            print("Fold {}:".format(k + 1))
-            print("Formula:", self.learning_results[k]['formulas'].__str__())
-            print("Weight(s):", self.learning_results[k]['weights'])
-            print("Train MCR:", self.learning_results[k]['tr_MCR'])
-            print("Test MCR:", self.learning_results[k]['te_MCR'])
-
+        fold_counter = 0
+        for f, w, p, tr, te in zip(formulas, weights, prunes, train_MCR, test_MCR):
+            fold_counter = fold_counter + 1
+            print('***********************************************************')
+            print("Fold {}:".format(fold_counter))
+            print("Formula:", f)
+            print("Weight(s):", w)
+            if args.prune:
+                print("Pruning Record:", p)
+            print("Train MCR:", tr)
+            print("Test MCR:", te)
+        print('***********************************************************')
+        print("Average training error:", sum(train_MCR)/float(k_fold))
+        print("Average testing error:", sum(test_MCR)/float(k_fold))
+        dt = time.time() - t0
+        print('Runtime:', dt)
 
 
 # ==============================================================================
@@ -222,9 +232,7 @@ def kfold_cross_validation(filename, args):
     print('Best num_trees:', best_numtree)
     print('Best k_max:', best_k_max)
     print('Best num_particles:', best_num_particles)
-    print('Runtime:', dt)  ## # TODO: Edit the method to make it compatible with new formulations
-
-
+    print('Runtime:', dt)
 # ==============================================================================
 # -- Parse Arguments() ---------------------------------------------------------
 # ==============================================================================
@@ -233,8 +241,11 @@ def get_argparser():
                                      argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-a', '--action', metavar='A', default='learn', help=
                             """
-                            'learn': builds a classifier
-                            'cv': performs cross validation
+                            action to take:
+                            'learn': builds a classifier for the given training
+                            set. The resulting stl formula will be printed.
+                            'cv': performs a cross validation test using the
+                            given training set.
                             """)
     parser.add_argument('-d', '--depth', metavar='D', type=int,
                         default = 1, help='maximum depth of the decision tree')
@@ -255,13 +266,13 @@ def get_argparser():
 def get_path(f):
     return os.path.join(os.getcwd(), f)
 
+
 # ==============================================================================
 # -- global variables and functions---------------------------------------------
 # ==============================================================================
 if __name__ == '__main__':
     args = get_argparser().parse_args()
-    non_inc_class = Non_Inc_Main(args)
-    non_inc_class.show_results()
-
-    dt = time.time() - non_inc_class.time_init
-    print("Runtime:", dt)
+    if args.action == 'learn':
+        kfold_learning(get_path(args.file), args)
+    else:
+        kfold_cross_validation(get_path(args.file), args)

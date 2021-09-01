@@ -121,6 +121,8 @@ def kfold_learning(filename, args):
     print('(Number of signals, dimension, timepoints):', signals_shape)
 
     t0 = time.time()
+    seed_value = random.randrange(sys.maxsize)
+    random.seed(seed_value)
     k_fold = args.fold
     primitives1 = make_stl_primitives1(signals)
     primitives2 = make_stl_primitives2(signals)
@@ -174,6 +176,7 @@ def kfold_learning(filename, args):
         print('***********************************************************')
         print("Average training error:", sum(train_MCR)/float(k_fold))
         print("Average testing error:", sum(test_MCR)/float(k_fold))
+        print("Seed:", seed_value)
         dt = time.time() - t0
         print('Runtime:', dt)
 

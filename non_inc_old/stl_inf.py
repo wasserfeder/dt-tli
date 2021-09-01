@@ -317,80 +317,8 @@ def combine_primitives(root_prim, child_prim, signals, traces, labels, rho_path,
         prim, impurity, rhos = best_combined_prim(signals, traces, labels, rho_path, combined_prim, D_t, args)
         return prim, impurity, rhos
 
-
-    # elif (root_prim.op == 6 and child_prim.op == 7):
-    #     if root_prim.child.op == 8:
-    #         left_child = copy.deepcopy(child_prim.child)
-    #         left_child.threshold = 0
-    #         right_child = copy.deepcopy(root_prim.child)
-    #         root_child.threshold = 0
-    #         combined_pred = STLFormula(Operation.UNTIL, low = 0, high = 0, left = left_child, right = right_child)
-    #         combined_prim = STLFormula(Operation.EVENT, low = 0, high = 0, child = combined_pred)
-    #         print('***************************************************************')
-    #         print("candidate combined primitive:", combined_prim)
-    #         prim, impurity, rhos = best_combined_prim(signals, traces, labels, rho_path, combined_prim, D_t, args)
-    #         return prim, impurity, rhos
-    #
-    #     elif root_prim.child.op == 3:
-    #         left_child = copy.deepcopy(child_prim.child)
-    #         left_child.threshold = 0
-    #         right_children = copy.deepcopy(root_prim.child.children)
-    #         for child in right_children:
-    #             child.threshold = 0
-    #         right_child = STLFormula(Operation.AND, children = right_children)
-    #         combined_pred = STLFormula(Operation.UNTIL, low = 0, high = 0, left = left_child, right = right_child)
-    #         combined_prim = STLFormula(Operation.EVENT, low = 0, high = 0, child = combined_pred)
-    #         print('***************************************************************')
-    #         print("candidate combined primitive:", combined_prim)
-    #         prim, impurity, rhos = best_combined_prim(signals, traces, labels, rho_path, combined_prim, D_t, args)
-    #         return prim, impurity, rhos
-    #
-    #     elif root_prim.child.op == 5:
-    #         left_child = root_prim.child.left
-    #         if left_child.op == 3:
-    #             children = copy.deepcopy(left_child.children)
-    #             for child in children:
-    #                 child.threshold = 0
-    #         else:
-    #             children = [copy.deepcopy(left_child)]
-    #             children[0].threshold = 0
-    #         children += [copy.deepcopy(child_prim.child)]
-    #         children[-1].threshold = 0
-    #         for i in range(len(children)-1):
-    #             if (children[i].variable == children[-1].variable) and (children[i].relation == children[-1].relation):
-    #                 return None, None, None
-    #         left_child = STLFormula(Operation.AND, children = children)
-    #         right_child = root_prim.child.right
-    #         if right_child.op == 3:
-    #             children = copy.deepcopy(right_child.children)
-    #             for child in children:
-    #                 child.threshold = 0
-    #             right_child = STLFormula(Operation.AND, children = children)
-    #         else:
-    #             right_child = copy.deepcopy(right_child)
-    #             right_child.threshold = 0
-    #         combined_pred = STLFormula(Operation.UNTIL, low = 0, high = 0, left = left_child, right = right_child)
-    #         combined_prim = STLFormula(Operation.EVENT, low = 0, high = 0, child = combined_pred)
-    #         print('***************************************************************')
-    #         print("candidate combined primitive:", combined_prim)
-    #         prim, impurity, rhos = best_combined_prim(signals, traces, labels, rho_path, combined_prim, D_t, args)
-    #         return prim, impurity, rhos
-
     else:
         return None, None, None
-
-
-
-    # elif (root_prim.op == 7 and child_prim.op == 6):
-    #     if root_prim.child.op == 8:
-    #         ...
-    #     elif root_prim.child.op == 3:
-    #         ...
-    #     else:
-    #         return None, None, None
-    #
-    # else:
-    #     return None, None, None
 
 
 # ==============================================================================

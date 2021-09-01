@@ -1,53 +1,53 @@
 import numpy as np
 import random
 from numpy import linalg as LA
-from stl_prim import set_stl1_pars, set_stl2_pars
+from stl_prim import set_stl1_pars, set_stl2_pars, set_combined_stl_pars
 import copy
+# from combined_pso_test import get_indices
 
 
-def compute_robustness(signals, params, primitive, primitive_type, rho_paths):
+# def compute_robustness(trace, params, primitive, primitive_type, rho_path):
+#     primitive = set_combined_stl_pars(primitive, primitive_type, params)
+#     rho_primitive = primitive.robustness(trace, 0)
+#     return np.min([rho_primitive, rho_path])
+
+def get_indices(primitive, primitive_type):
+    if primitive_type == 3 or primitive_type == 4:
+        children = primitive.child.children
+        signal_indices = [int(children[i].variable.split("_")[1]) for i in range(len(children))]
+
+    return signal_indices
+
+
+def compute_combined_robustness(signals, position, primitive, primitive_type, rho_path):
     rhos = [0] * len(signals)
-    if primitive_type == 1:
-        index = int(primitive.child.variable.split("_")[1])
-        threshold = params[0]
-        t0, t1 = int(params[1]), int(params[2])
-        if primitive.op == 6:
-            if primitive.child.relation == 2:
-                for i in range(len(signals)):
-                    rhos[i] = np.min([np.max([threshold - signals[i][index][t] for t in range(t0, t1+1)]), rho_paths[i]])
+    if primitive_type == 3 or primitive_type == 4:
+        indices = get_indices(primitive, primitive_type)
+        children = primitive.child.children
+        t0, t1 = int(position[-2]), int(position[-1])
+        for i in range(len(signals)):
+            rho_primitive = []
+            for t in range(t0, t1+1):
+                rho_predicates = [0] * len(indices)
+                for k in range(len(indices)):
+                    if children[k].relation == 2:
+                        rho_predicates[k] = position[k] - signals[i][indices[k]][t]
+                    else:
+                        rho_predicates[k] = signals[i][indices[k]][t] - position[k]
+                rho_primitive.append(np.min(rho_predicates))
+            if primitive_type == 3:
+                rhos[i] = min(max(rho_primitive),rho_path[i])
             else:
-                for i in range(len(signals)):
-                    rhos[i] = np.min([np.max([signals[i][index][t] - threshold for t in range(t0, t1+1)]), rho_paths[i]])
-        else:
-            if primitive.child.relation == 2:
-                for i in range(len(signals)):
-                    rhos[i] = np.min([np.min([threshold - signals[i][index][t] for t in range(t0, t1+1)]), rho_paths[i]])
-            else:
-                for i in range(len(signals)):
-                    rhos[i] = np.min([np.min([signals[i][index][t] - threshold for t in range(t0, t1+1)]), rho_paths[i]])
+                rhos[i] = min(min(rho_primitive), rho_path[i])
         return rhos
 
 
 
-# def compute_robustness(trace, params, primitive, primitive_type, rho_path):
-#     if primitive_type == 1:
-#         primitive = set_stl1_pars(primitive, params)
-#     else:
-#         primitive = set_stl2_pars(primitive, params)
-#     rho_primitive = primitive.robustness(trace, 0)
-#     return np.min([rho_primitive, rho_path])
-
 
 def pso_costFunc(position, signals, traces, labels, primitive, primitive_type, rho_path, D_t):
-    if primitive_type == 1:
-        [pi, t0, t1] = position
+    if primitive_type == 3 or primitive_type == 4:
+        t0, t1 = position[-2], position[-1]
         if t0 > t1:
-            print("Wrong Input")
-            return
-    else:
-        [pi, t0, t1, t3] = position
-        signal_horizon = len(signals[0][0]) - 1
-        if t0 > t1 or t1+ t3 > signal_horizon:
             print("Wrong Input")
             return
     S_true, S_false = [], []
@@ -56,7 +56,7 @@ def pso_costFunc(position, signals, traces, labels, primitive, primitive_type, r
 
     primitive = copy.deepcopy(primitive)
     # rhos = [compute_robustness(traces[i], position, primitive, primitive_type, rho_path[i]) for i in range(len(signals))]
-    rhos = compute_robustness(signals, position, primitive, primitive_type, rho_path)
+    rhos = compute_combined_robustness(signals, position, primitive, primitive_type, rho_path)
     for i in range(len(signals)):
         if rhos[i] >= 0:
             S_true.append(i)
@@ -125,43 +125,37 @@ class Particle():
         vel_soc_diff    = pos_best_g - self.position
         vel_social      = c2 * np.multiply(r2, vel_soc_diff)
         self.velocity   = w * self.velocity + vel_cognitive + vel_social
-        self.velocity[0] = max(self.velocity[0], -10)
-        self.velocity[0] = min(self.velocity[0], 10)
-        self.velocity[1] = max(self.velocity[1], -5)
-        self.velocity[1] = min(self.velocity[1], 5)
-        self.velocity[2] = max(self.velocity[2], -5)
-        self.velocity[2] = min(self.velocity[2], 5)
-        if self.primitive_type == 2:
-            self.velocity[3] = max(self.velocity[3], 4)
-            self.velocity[3] = min(self.velocity[3], -4)
+        if self.primitive_type == 3 or self.primitive_type == 4:
+            children = self.primitive.child.children
+            for j in range(len(children)):
+                self.velocity[j] = max(self.velocity[j], -10)
+                self.velocity[j] = min(self.velocity[j], 10)
+            self.velocity[-2] = max(self.velocity[-2], -5)
+            self.velocity[-2] = min(self.velocity[-2], 5)
+            self.velocity[-1] = max(self.velocity[-1], -5)
+            self.velocity[-1] = min(self.velocity[-1], 5)
 
 
     def update_position(self):
         self.position = self.position + self.velocity
-        self.position[1] = int(np.floor(self.position[1]))-1
-        self.position[2] = int(np.round(self.position[2]))+1
-        self.position[0] = max(self.position[0], self.bounds[0])
-        self.position[0] = min(self.position[0], self.bounds[1])
-        if self.primitive_type == 1:
-            self.position[1] = max(self.position[1], 0)
-            self.position[1] = min(self.position[1], self.bounds[2]-1)
-            self.position[2] = max(self.position[2], 1)
-            self.position[2] = min(self.position[2], self.bounds[2])
-            if self.position[1] > self.position[2]:
-                temp = self.position[1]
-                self.position[1] = self.position[2]
-                self.position[2] = temp
-        else:
-            self.position[3] = int(np.round(self.position[3]))+1
-            self.position[1] = max(self.position[1], 0)
-            self.position[2] = max(self.position[2], 1)
-            self.position[3] = max(self.position[3], 1)
-            self.position[3] = min(self.position[3], self.bounds[2]-1)
-            self.position[2] = min(self.position[2], self.bounds[2] - self.position[3])
-            self.position[1] = min(self.position[1], self.position[2] - 1)
+        if self.primitive_type == 3 or self.primitive_type == 4:
+            self.position[-2] = int(np.floor(self.position[-2]))-1
+            self.position[-1] = int(np.round(self.position[-1]))+1
+            self.position[-2] = max(self.position[-2], 0)
+            self.position[-2] = min(self.position[-2], self.bounds[-1]-1)
+            self.position[-1] = max(self.position[-1], 1)
+            self.position[-1] = min(self.position[-1], self.bounds[-1])
+            if self.position[-2] > self.position[-1]:
+                temp = self.position[-2]
+                self.position[-2] = self.position[-1]
+                self.position[-1] = temp
+            children = self.primitive.child.children
+            for j in range(len(children)):
+                self.position[j] = max(self.position[j], self.bounds[2*j])
+                self.position[j] = min(self.position[j], self.bounds[2*j+1])
 
 
-class PSO():
+class Combined_PSO():
     def __init__(self, signals, traces, labels, bounds, primitive, primitive_type, args):
         self.k_max              = args.k_max
         self.num_particles      = args.num_particles
@@ -182,31 +176,23 @@ class PSO():
 
     def initialize_swarm(self):
         swarm = []
-        pi_range = (self.bounds[1] - self.bounds[0]) / self.num_particles
-        if self.primitive_type == 1:
+        if self.primitive_type == 3 or self.primitive_type == 4:
+            children = self.primitive.child.children
             for i in range(self.num_particles):
-                pi_init = random.uniform(self.bounds[0], self.bounds[1])
-                t0_init = int(np.floor(random.uniform(0, self.bounds[2]-1)))
-                t1_init = int(np.round(random.uniform(t0_init + 1, self.bounds[2])))
-                x0 = np.array([pi_init, t0_init, t1_init])
-                v0_pi = random.uniform(-pi_range, pi_range)
+                x0, v0 = [], []
+                for j in range(len(children)):
+                    pi_init = random.uniform(self.bounds[2*j], self.bounds[2*j+1])
+                    x0 += [pi_init]
+                    pi_range = (self.bounds[2*j+1] - self.bounds[2*j]) / self.num_particles
+                    v0_pi = random.uniform(-pi_range, pi_range)
+                    v0 += [v0_pi]
+                t0_init = int(np.floor(random.uniform(0, self.bounds[-1]-1)))
+                t1_init = int(np.round(random.uniform(t0_init + 1, self.bounds[-1])))
+                x0 += [t0_init, t1_init]
                 v0_t0 = random.randint(-3,3)
                 v0_t1 = random.randint(-3,3)
-                v0 = np.array([v0_pi, v0_t0, v0_t1])
-                swarm.append(Particle(x0, v0, self.signals, self.traces, self.labels, self.bounds, self.primitive, self.primitive_type))
-        else:
-            for i in range(self.num_particles):
-                pi_init = random.uniform(self.bounds[0], self.bounds[1])
-                t3_init = int(np.floor(random.uniform(1, self.bounds[2]-1)))
-                t1_up = self.bounds[2] - t3_init
-                t0_init = int(np.floor(random.uniform(0, t1_up-1)))
-                t1_init = int(np.round(random.uniform(t0_init + 1, t1_up)))
-                x0 = np.array([pi_init, t0_init, t1_init, t3_init])
-                v0_pi = random.uniform(-pi_range, pi_range)
-                v0_t0 = random.randint(-3,3)
-                v0_t1 = random.randint(-3,3)
-                v0_t3 = random.randint(-2, 2)
-                v0 = np.array([v0_pi, v0_t0, v0_t1, v0_t3])
+                v0 += [v0_t0, v0_t1]
+                x0, v0 = np.array(x0), np.array(v0)
                 swarm.append(Particle(x0, v0, self.signals, self.traces, self.labels, self.bounds, self.primitive, self.primitive_type))
         return swarm
 
