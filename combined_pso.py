@@ -15,6 +15,8 @@ def get_indices(primitive, primitive_type):
     if primitive_type == 3 or primitive_type == 4:
         children = primitive.child.children
         signal_indices = [int(children[i].variable.split("_")[1]) for i in range(len(children))]
+    elif primitive_type == 5:
+        signal_indices = [int(primitive.child.left.variable.split("_")[1]) , int(primitive.child.right.variable.split("_")[1])]
 
     return signal_indices
 
@@ -41,6 +43,32 @@ def compute_combined_robustness(signals, position, primitive, primitive_type, rh
                 rhos[i] = min(min(rho_primitive), rho_path[i])
         return rhos
 
+    elif primitive_type == 5:
+        rhos = [0] * len(signals)
+        indices = get_indices(primitive, primitive_type)
+        left_child = primitive.child.left
+        right_child = primitive.child.right
+        t0, t1, t3 = int(position[2]), int(position[3]), int(position[4])
+        for i in range(len(signals)):
+            rho_primitive = []
+            for t in range(t0, t1+1):
+                rho_until = []
+                for t_prime in range(t+1, t+t3-1):
+                    rho_left = []
+                    for t_zeta in range(t, t_prime):
+                        if left_child.relation == 2:
+                            rho_left.append(position[0] - signals[i][indices[0]][t_zeta])
+                        else:
+                            rho_left.append(signals[i][indices[0]][t_zeta])
+                    left_rho = min(rho_left)
+                    if right_child.relation == 2:
+                        right_rho = position[1] - signals[i][indices[1]][t_prime]
+                    else:
+                        right_rho = signals[i][indices[1]][t_prime] - position[1]
+                    rho_until.append(min(left_rho, right_rho))
+                rho_primitive.append(max(rho_until))
+            rhos[i] = min(max(rho_primitive), rho_path[i])
+        return rhos
 
 
 
@@ -48,6 +76,12 @@ def pso_costFunc(position, signals, traces, labels, primitive, primitive_type, r
     if primitive_type == 3 or primitive_type == 4:
         t0, t1 = position[-2], position[-1]
         if t0 > t1:
+            print("Wrong Input")
+            return
+    elif primitive_type == 5:
+        t0, t1, t3 = position[2], position[3], position[4]
+        signal_horizon = len(signals[0][0])-1
+        if t0 > t1 or t1+t3 > signal_horizon:
             print("Wrong Input")
             return
     S_true, S_false = [], []
@@ -135,6 +169,18 @@ class Particle():
             self.velocity[-1] = max(self.velocity[-1], -5)
             self.velocity[-1] = min(self.velocity[-1], 5)
 
+        elif self.primitive_type == 5:
+            self.velocity[0] = max(self.velocity[0], -10)
+            self.velocity[0] = min(self.velocity[0], 10)
+            self.velocity[1] = max(self.velocity[1], -10)
+            self.velocity[1] = min(self.velocity[1], 10)
+            self.velocity[2] = max(self.velocity[2], -5)
+            self.velocity[2] = min(self.velocity[2], 5)
+            self.velocity[3] = max(self.velocity[3], -5)
+            self.velocity[3] = min(self.velocity[3], 5)
+            self.velocity[4] = max(self.velocity[4], 4)
+            self.velocity[4] = min(self.velocity[4], -4)
+
 
     def update_position(self):
         self.position = self.position + self.velocity
@@ -153,6 +199,22 @@ class Particle():
             for j in range(len(children)):
                 self.position[j] = max(self.position[j], self.bounds[2*j])
                 self.position[j] = min(self.position[j], self.bounds[2*j+1])
+
+        elif self.primitive_type == 5:
+            self.position[0] = max(self.position[0], self.bounds[0])
+            self.position[0] = min(self.position[0], self.bounds[1])
+            self.position[1] = max(self.position[1], self.bounds[2])
+            self.position[1] = min(self.position[1], self.bounds[3])
+            self.position[2] = int(np.floor(self.position[2]))-1
+            self.position[3] = int(np.round(self.position[3]))+1
+            self.position[4] = int(np.round(self.position[4]))+1
+            self.position[2] = max(self.position[2], 0)
+            self.position[3] = max(self.position[3], 1)
+            self.position[4] = max(self.position[4], 1)
+            self.position[4] = min(self.position[4], self.bounds[-1]-1)
+            self.position[3] = min(self.position[3], self.bounds[-1] - self.position[4])
+            self.position[2] = min(self.position[2], self.position[3] - 1)
+
 
 
 class Combined_PSO():
@@ -193,6 +255,25 @@ class Combined_PSO():
                 v0_t1 = random.randint(-3,3)
                 v0 += [v0_t0, v0_t1]
                 x0, v0 = np.array(x0), np.array(v0)
+                swarm.append(Particle(x0, v0, self.signals, self.traces, self.labels, self.bounds, self.primitive, self.primitive_type))
+        elif self.primitive_type == 5:
+            for i in range(self.num_particles):
+                x0, v0 = [], []
+                left_pi_init = random.uniform(self.bounds[0], self.bounds[1])
+                right_pi_init = random.uniform(self.bounds[2], self.bounds[3])
+                t3_init = int(np.floor(random.uniform(1, self.bounds[-1]-1)))
+                t1_up = self.bounds[-1] - t3_init
+                t0_init = int(np.floor(random.uniform(0, t1_up-1)))
+                t1_init = int(np.round(random.uniform(t0_init + 1, t1_up)))
+                x0 = np.array([left_pi_init, right_pi_init, t0_init, t1_init, t3_init])
+                left_pi_range = (self.bounds[1] - self.bounds[0])/self.num_particles
+                right_pi_range = (self.bounds[3]-self.bounds[2])/self.num_particles
+                v0_left_pi = random.uniform(-left_pi_range, left_pi_range)
+                v0_right_pi = random.uniform(-right_pi_range, right_pi_range)
+                v0_t0 = random.randint(-3,3)
+                v0_t1 = random.randint(-3,3)
+                v0_t3 = random.randint(-2, 2)
+                v0 = np.array([v0_left_pi, v0_right_pi, v0_t0, v0_t1, v0_t3])
                 swarm.append(Particle(x0, v0, self.signals, self.traces, self.labels, self.bounds, self.primitive, self.primitive_type))
         return swarm
 

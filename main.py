@@ -16,6 +16,7 @@ import random
 import pickle
 import sys
 sys.path.append("/home/erfan/Documents/University/Projects/Learning_Specifications/python-stl/stl")
+
 from stl import Trace
 from stl_inf import best_prim
 
@@ -24,11 +25,19 @@ from stl_inf import best_prim
 # ---- Non-Incremental Evaluation ----------------------------------------------
 # ==============================================================================
 def bdt_evaluation(signals, traces, labels, trees, weights, numtree):
+    M = 100
     test = np.zeros(len(signals))
+    m_counter = 0
     for i in range(numtree):
-        # test = test + weights[i] * np.array([trees[i].classify(trace)
-        #                                                 for trace in traces])
-        test = test + weights[i] * np.array([trees[i].classify(signal)
+        if weights[i] == M:
+            m_counter +=1
+            index = i
+    if m_counter == 1:
+        test = test + weights[index] * np.array([trees[index].classify(signal)
+                                                        for signal in signals])
+    else:
+        for i in range(numtree):
+            test = test + weights[i] * np.array([trees[i].classify(signal)
                                                         for signal in signals])
 
     test = np.sign(test)
@@ -122,6 +131,7 @@ def kfold_learning(filename, args):
 
     t0 = time.time()
     seed_value = random.randrange(sys.maxsize)
+    # seed_value = 9138502810735922773L
     random.seed(seed_value)
     k_fold = args.fold
     primitives1 = make_stl_primitives1(signals)

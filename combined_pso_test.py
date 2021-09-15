@@ -20,6 +20,8 @@ def get_indices(primitive, primitive_type):
     if primitive_type == 3 or primitive_type == 4:
         children = primitive.child.children
         signal_indices = [int(children[i].variable.split("_")[1]) for i in range(len(children))]
+    elif primitive_type == 5:
+        signal_indices = [int(primitive.child.left.variable.split("_")[1]) , int(primitive.child.right.variable.split("_")[1])]
 
     return signal_indices
 
