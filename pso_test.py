@@ -6,7 +6,6 @@ import argparse
 from os import path
 import os
 from pso import pso_costFunc, PSO
-# from stl_syntax import GT, LE
 
 
 def run_pso_optimization(signals, traces, labels, rho_path, primitive, primitive_type, D_t, args):

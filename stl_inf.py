@@ -3,7 +3,7 @@
 # -- imports -------------------------------------------------------------------
 # ==============================================================================
 
-from stl_syntax import Formula, AND, OR, NOT, satisfies, robustness, GT
+# from stl_syntax import Formula, AND, OR, NOT, satisfies, robustness, GT
 import numpy as np
 from pso_test import run_pso_optimization
 from pso import compute_robustness
@@ -41,19 +41,6 @@ class DTree(object):        # Decission tree recursive structure
                 return -1
             else:
                 return self.right.classify(signal)
-
-    # def classify(self, trace):
-    #     rho = self.primitive.robustness(trace, 0)
-    #     if rho >= 0:
-    #         if self.left is None:
-    #             return 1
-    #         else:
-    #             return self.left.classify(trace)
-    #     else:
-    #         if self.right is None:
-    #             return -1
-    #         else:
-    #             return self.right.classify(trace)
 
 
     def get_primitive_type(self, primitive):
@@ -270,8 +257,6 @@ def best_prim(signals, traces, labels, rho_path, primitives, D_t, args):
         else:
             primitive = set_stl2_pars(primitive, params)
 
-        # rhos = np.array([compute_robustness(traces[i], params, primitive, primitive_type,
-        #                             rho_path[i]) for i in range(len(signals))])
         rhos = np.array(compute_robustness(signals, params, primitive, primitive_type, rho_path))
         opt_prims.append([primitive, impurity, rhos])
 
@@ -324,23 +309,6 @@ def combine_primitives(root_prim, child_prim, signals, traces, labels, rho_path,
         prim, impurity, rhos = best_combined_prim(signals, traces, labels, rho_path, combined_prim, D_t, args)
         return prim, impurity, rhos
 
-
-    # elif (root_prim.op == 6 and root_prim.child.op == 8 and child_prim.op == 7) or (root_prim.op == 7 and root_prim.child.op == 8 and child_prim.op == 6):
-    #     if root_prim.op == 6:
-    #         left_child = copy.deepcopy(child_prim.child)
-    #         right_child = copy.deepcopy(root_prim.child)
-    #     else:
-    #         left_child = copy.deepcopy(root_prim.child)
-    #         right_child = copy.deepcopy(child_prim.child)
-    #     left_child.threshold = 0
-    #     right_child.threshold = 0
-    #     combined_pred = STLFormula(Operation.UNTIL, low = 0, high = 0, left = left_child, right = right_child)
-    #     combined_prim = STLFormula(Operation.EVENT, low = 0, high = 0, child = combined_pred)
-    #     print('***************************************************************')
-    #     print("candidate combined primitive:", combined_prim)
-    #     prim, impurity, rhos = best_combined_prim(signals, traces, labels, rho_path, combined_prim, D_t, args)
-    #     return prim, impurity, rhos
-
     else:
         return None, None, None
 
@@ -363,7 +331,6 @@ def best_combined_prim(signals, traces, labels, rho_path, combined_prim, D_t, ar
 
     prim = set_combined_stl_pars(combined_prim, primitive_type, params)
     rhos = compute_combined_robustness(signals, params, prim, primitive_type, rho_path)
-    # rhos = [np.min([prim.robustness(traces[i],0), rho_path[i]]) for i in range(len(signals))]
     print('***************************************************************')
     print("best combined primitive:", prim)
     print("combined primitive impurity:", impurity)

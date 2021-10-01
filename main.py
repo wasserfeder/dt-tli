@@ -65,9 +65,7 @@ def boosted_trees(tr_s, tr_t, tr_l, te_s, te_t, te_l, rho_path, primitives, D_t,
             trees[t], prunes[t] = pruned_tree(tr_s, tr_t, tr_l, rho_path, depth, root_prim, root_impurity, root_rhos, primitives, D_t, args, prune_record)
         else:
             trees[t] = normal_tree(tr_s, tr_t, tr_l, rho_path, depth, primitives, D_t, args)
-        # rhos = [trees[t].tree_robustness(trace, np.inf) for trace in tr_t]
         formulas[t] = trees[t].get_formula()
-        # pred_labels = np.array([trees[t].classify(trace) for trace in tr_t])
         pred_labels = np.array([trees[t].classify(signal) for signal in tr_s])
         for i in range(len(tr_s)):
             if tr_l[i] != pred_labels[i]:
@@ -131,7 +129,6 @@ def kfold_learning(filename, args):
 
     t0 = time.time()
     seed_value = random.randrange(sys.maxsize)
-    # seed_value = 9138502810735922773L
     random.seed(seed_value)
     k_fold = args.fold
     primitives1 = make_stl_primitives1(signals)

@@ -3,13 +3,7 @@ import random
 from numpy import linalg as LA
 from stl_prim import set_stl1_pars, set_stl2_pars, set_combined_stl_pars
 import copy
-# from combined_pso_test import get_indices
 
-
-# def compute_robustness(trace, params, primitive, primitive_type, rho_path):
-#     primitive = set_combined_stl_pars(primitive, primitive_type, params)
-#     rho_primitive = primitive.robustness(trace, 0)
-#     return np.min([rho_primitive, rho_path])
 
 def get_indices(primitive, primitive_type):
     if primitive_type == 3 or primitive_type == 4:

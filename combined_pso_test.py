@@ -6,7 +6,6 @@ import os
 from combined_pso import Combined_PSO
 
 
-
 def run_combined_pso(signals, traces, labels, rho_path, primitive, primitive_type, D_t, args):
     signal_indices = get_indices(primitive, primitive_type)
     bounds = get_bounds(signals, signal_indices)
