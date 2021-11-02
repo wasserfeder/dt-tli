@@ -116,4 +116,3 @@ if __name__ == '__main__':
             print('epoch {epoch}: w = {weight}, loss = {loss}'.format(epoch=epoch+1,weight=w, loss=l))
 
     print('robustness after training: forward_conjunction(X)= {}'.format(forward_disjunction(X,w)))
-
