@@ -1,7 +1,7 @@
 import numpy as np
 import random
 from numpy import linalg as LA
-from stl_prim import set_stl1_pars, set_stl2_pars
+from stl_prim import set_stl1_pars
 import copy
 
 
@@ -29,16 +29,7 @@ def compute_robustness(signals, params, primitive, primitive_type, rho_paths):
 
 
 
-# def compute_robustness(trace, params, primitive, primitive_type, rho_path):
-#     if primitive_type == 1:
-#         primitive = set_stl1_pars(primitive, params)
-#     else:
-#         primitive = set_stl2_pars(primitive, params)
-#     rho_primitive = primitive.robustness(trace, 0)
-#     return np.min([rho_primitive, rho_path])
-
-
-def pso_costFunc(position, signals, traces, labels, primitive, primitive_type, rho_path, D_t):
+def pso_costFunc(position, signals, labels, primitive, primitive_type, rho_path):
     if primitive_type == 1:
         [pi, t0, t1] = position
         if t0 > t1:
@@ -55,7 +46,6 @@ def pso_costFunc(position, signals, traces, labels, primitive, primitive_type, r
     S_false_pos, S_false_neg = [], []
 
     primitive = copy.deepcopy(primitive)
-    # rhos = [compute_robustness(traces[i], position, primitive, primitive_type, rho_path[i]) for i in range(len(signals))]
     rhos = compute_robustness(signals, position, primitive, primitive_type, rho_path)
     for i in range(len(signals)):
         if rhos[i] >= 0:
@@ -65,22 +55,14 @@ def pso_costFunc(position, signals, traces, labels, primitive, primitive_type, r
 
     for i in S_true:
         if labels[i] > 0:
-            # S_true_pos.append(D_t[i] * rhos[i])
-            # S_true_pos.append(D_t[i])
             S_true_pos.append(1)
         else:
-            # S_true_neg.append(D_t[i] * rhos[i])
-            # S_true_neg.append(D_t[i])
             S_true_neg.append(1)
 
     for i in S_false:
         if labels[i] > 0:
-            # S_false_pos.append(-D_t[i] * rhos[i])
-            # S_false_pos.append(D_t[i])
             S_false_pos.append(1)
         else:
-            # S_false_neg.append(-D_t[i] * rhos[i])
-            # S_false_neg.append(D_t[i])
             S_false_neg.append(1)
 
     S_tp, S_tn = sum(S_true_pos), sum(S_true_neg)
@@ -93,11 +75,10 @@ def pso_costFunc(position, signals, traces, labels, primitive, primitive_type, r
 
 
 class Particle():
-    def __init__(self, x0, v0, signals, traces, labels, bounds, primitive, primitive_type):
+    def __init__(self, x0, v0, signals,  labels, bounds, primitive, primitive_type):
         self.position       = x0
         self.velocity       = v0
         self.signals        = signals
-        self.traces         = traces
         self.labels         = labels
         self.bounds         = bounds
         self.primitive      = primitive
@@ -106,8 +87,8 @@ class Particle():
         self.pos_best_i     = []
 
 
-    def evaluate(self, costFunc, rho_path, D_t):
-        self.err_i = costFunc(self.position, self.signals, self.traces, self.labels, self.primitive, self.primitive_type, rho_path, D_t)
+    def evaluate(self, costFunc, rho_path):
+        self.err_i = costFunc(self.position, self.signals, self.labels, self.primitive, self.primitive_type, rho_path)
 
         if self.err_i < self.err_best_i or self.err_best_i is None:
             self.err_best_i = self.err_i
@@ -162,11 +143,10 @@ class Particle():
 
 
 class PSO():
-    def __init__(self, signals, traces, labels, bounds, primitive, primitive_type, args):
+    def __init__(self, signals, labels, bounds, primitive, primitive_type, args):
         self.k_max              = args.k_max
         self.num_particles      = args.num_particles
         self.signals            = signals
-        self.traces             = traces
         self.labels             = labels
         self.costFunc           = pso_costFunc
         self.bounds             = bounds
@@ -193,7 +173,7 @@ class PSO():
                 v0_t0 = random.randint(-3,3)
                 v0_t1 = random.randint(-3,3)
                 v0 = np.array([v0_pi, v0_t0, v0_t1])
-                swarm.append(Particle(x0, v0, self.signals, self.traces, self.labels, self.bounds, self.primitive, self.primitive_type))
+                swarm.append(Particle(x0, v0, self.signals, self.labels, self.bounds, self.primitive, self.primitive_type))
         else:
             for i in range(self.num_particles):
                 pi_init = random.uniform(self.bounds[0], self.bounds[1])
@@ -207,14 +187,14 @@ class PSO():
                 v0_t1 = random.randint(-3,3)
                 v0_t3 = random.randint(-2, 2)
                 v0 = np.array([v0_pi, v0_t0, v0_t1, v0_t3])
-                swarm.append(Particle(x0, v0, self.signals, self.traces, self.labels, self.bounds, self.primitive, self.primitive_type))
+                swarm.append(Particle(x0, v0, self.signals, self.labels, self.bounds, self.primitive, self.primitive_type))
         return swarm
 
 
-    def optimize_swarm(self, rho_path, D_t):
+    def optimize_swarm(self, rho_path):
         for k in range(self.k_max):
             for i in range(self.num_particles):
-                self.swarm[i].evaluate(self.costFunc, rho_path, D_t)
+                self.swarm[i].evaluate(self.costFunc, rho_path)
 
                 if self.swarm[i].err_best_i < self.err_best_g or self.err_best_g is None:
                     self.err_best_g = self.swarm[i].err_best_i

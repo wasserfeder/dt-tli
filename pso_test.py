@@ -8,14 +8,14 @@ import os
 from pso import pso_costFunc, PSO
 
 
-def run_pso_optimization(signals, traces, labels, rho_path, primitive, primitive_type, D_t, args):
+def run_pso_optimization(signals, labels, rho_path, primitive, primitive_type, args):
     if primitive_type == 1:
         signal_dimension = int(primitive.child.variable.split("_")[1])
     else:
         signal_dimension = int(primitive.child.child.variable.split("_")[1])
     bounds = get_bounds(signals, signal_dimension)
-    particle_swarm = PSO(signals, traces, labels, bounds, primitive, primitive_type, args)
-    params, impurity = particle_swarm.optimize_swarm(rho_path, D_t)
+    particle_swarm = PSO(signals, labels, bounds, primitive, primitive_type, args)
+    params, impurity = particle_swarm.optimize_swarm(rho_path)
     return params, impurity
 
 

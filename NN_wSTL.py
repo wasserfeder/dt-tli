@@ -23,8 +23,6 @@ def forward_disjunction(X, w):
     denominator = denominator.sum()
 
     # disjunction numberator
-
-
     numerator = torch.mul(s_norm, w_norm)
     numerator = torch.mul(numerator, r)
     numerator = numerator.sum()
@@ -61,6 +59,7 @@ def STL_formula(formula):
     t = parser.stlProperty()
     ast = STLAbstractSyntaxTreeExtractor().visit(t)
     return ast
+
 
 
 if __name__ == '__main__':

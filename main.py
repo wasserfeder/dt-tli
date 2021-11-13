@@ -1,267 +1,174 @@
+# TODO:
+'''
+* Two types of growing trees: 1) only based on partial signals, 2) based on
+partial signals and prediction of the future of signals
+
+* For the grow criteria: 1) sum of the distances between signals, 2) max, min,
+and other variations of the distances
+
+'''
 
 # ==============================================================================
 # -- imports -------------------------------------------------------------------
 # ==============================================================================
 
-import numpy as np
-import math
+import numpy as np, math, argparse, os, time, random, pickle, sys
 from scipy.io import loadmat, savemat
-import argparse
-import os
-import time
-from stl_prim import make_stl_primitives1, make_stl_primitives2
-from stl_inf import inc_tree
 from sklearn.model_selection import KFold
-import random
-import pickle
-import sys
+import matplotlib.pyplot as plt
+from stl_prim import make_stl_primitives1
+from stl_inf import inc_tree
+from nn_preparation import get_weights
 sys.path.append("/home/erfan/Documents/University/Projects/Learning_Specifications/python-stl/stl")
-
-from stl import Trace
-from stl_inf import best_prim
-
 
 # ==============================================================================
 # ---- Incremental Evaluation ----------------------------------------------
 # ==============================================================================
-def inc_evaluation(signals, traces, labels, trees, weights):                        # TODO: Update the inc_evaluation method
-    M = 100
-    test = np.zeros(len(signals))
-    m_counter = 0
-    for i in range(numtree):
-        if weights[i] == M:
-            m_counter +=1
-            index = i
-    if m_counter == 1:
-        test = test + weights[index] * np.array([trees[index].classify(signal)
-                                                        for signal in signals])
-    else:
-        for i in range(numtree):
-            test = test + weights[i] * np.array([trees[i].classify(signal)
-                                                        for signal in signals])
+def inc_evaluation(signals, labels, nn_output):
+    signal_horizon = len(signals[0][0])
+    MCR_vote, MCR_rho = np.zeros(signal_horizon), np.zeros(signal_horizon)
 
-    test = np.sign(test)
-    return np.count_nonzero(labels - test) / float(len(labels))
+    # return MCR_vote, MCR_rho
+    return None, None
+
+
+# ==============================================================================
+# -- Distance between two signals() --------------------------------------------
+# ==============================================================================
+def signal_distance(pos_signal, neg_signal):
+    distance = 0
+    for j in range(len(pos_signal)):
+        distance += (pos_signal[j] - neg_signal[j])**2
+
+    return np.sqrt(distance)
+
+
+# ==============================================================================
+# -- check growth condition() ------------------------------------------
+# ==============================================================================
+def check_growth(pos_signals, neg_signals):
+    timepoints = len(pos_signals[0][0])
+    mean_distances = np.zeros(timepoints)
+    len_pos, len_neg = len(pos_signals), len(neg_signals)
+    for t in range(timepoints):
+        pos_signals_par = pos_signals[:, :, t]
+        neg_signals_par = neg_signals[:, :, t]
+        distance_array = []
+        for p in range(len_pos):
+            pos_signal = pos_signals_par[p]
+            for n in range(len_neg):
+                neg_signal = neg_signals_par[n]
+                distance = signal_distance(pos_signal, neg_signal)
+                distance_array.append(distance)
+        mean_distances[t] = np.mean(distance_array)
+
+    zero_ind = []
+    for i in range(1, timepoints-1):
+        if ((mean_distances[i] > mean_distances[i-1]) and (mean_distances[i] > mean_distances[i+1])) or ((mean_distances[i] < mean_distances[i-1]) and (mean_distances[i] < mean_distances[i+1])):
+            zero_ind.append(i)
+
+    decision_times = [zero_ind[0]]
+    for i in range(len(zero_ind)-1):
+        decision_times.append(int(0.5*(zero_ind[i] + zero_ind[i+1])))
+        decision_times.append(zero_ind[i+1])
+    decision_times.append(timepoints-1)
+    print("Decision Times:", decision_times)
+    return decision_times
 
 
 # ==============================================================================
 # -- Boosted Decision Tree Learning() ------------------------------------------
 # ==============================================================================
-def boosted_trees(tr_s, tr_t, tr_l, te_s, te_t, te_l, rho_path, primitives, D_t, args):
-    depth = args.depth
-    timepoints = len(tr_s[0][0])
-    trees, formulas = [], []
-    weights, epsilons = [], []
-    M = 100
-
+def boosted_trees(tr_s, tr_l, te_s, te_l, rho_path, primitives, args):
     tr_pos_ind, tr_neg_ind = np.where(tr_l > 0)[0], np.where(tr_l <= 0)[0]
+    pos_signals, neg_signals = signals[tr_pos_ind], signals[tr_neg_ind]
+    # decision_times = check_growth(pos_signals, neg_signals)
+    ##### For naval:
+    decision_times = [12, 15, 18, 26, 34, 37, 41, 60]
 
-    for t in range(2, timepoints):
-        tr_s_partial = tr_s[:,:,:t]
-        tr_t_partial = tr_t[:,:,:t]
-        tree = inc_tree(tr_s_partial, tr_t_partial, tr_l, tr_pos_ind, tr_neg_ind, rho_path, depth, primitives, D_t, args)   # TODO: Implement inc_tree method
-        if tree is not None:
-            formula = tree.get_formula()
-            pred_labels = np.array([tree.classify(signal) for signal in tr_s_partial])
-            epsilon = 0
-            for i in range(len(tr_s_partial)):
-                if tr_l[i] != pred_labels[i]:
-                    epsilon = epsilon + D_t[i]
-            if epsilon > 0:
-                weight = 0.5 * np.log(1/epsilon - 1)
-            else:
-                weight = M
-            print('***********************************************************')
-            print("Epsilon:", epsilon)
-            if epsilon <= 0.5:
-                trees.append(tree)
-                formulas.append(formula)
-                weights.append(weight)
-                epsilons.append(epsilon)
-                D_t = np.multiply(D_t, np.exp(np.multiply(-weight,
-                                          np.multiply(tr_l, pred_labels))))
-                D_t = np.true_divide(D_t, sum(D_t))
+    depth, tree_limit = args.depth, 5
+    trees, formulas = [], []
+    for t in decision_times:
+        tree = None
+        tree_counter = 0
+        tr_s_par = tr_s[:,:,:t]
+        while (tree is None and tree_counter < tree_limit):
+            tree = inc_tree(tr_s_par, tr_l, rho_path, depth, primitives, args)
+            tree_counter += 1
+            if tree is not None:
+                formula = tree.get_formula()
+                pred_labels = np.array([tree.classify(s) for s in tr_s_par])
+                epsilon = tr_l != pred_labels
+                if sum(epsilon)/len(tr_s) <= 0.5:
+                    trees.append(tree)
+                    formulas.append(formula)
+                else:
+                    tree = None
 
-    # TODO: Before evaluation, we need to learn the weights from NN -> implement that here
+    nn_output = get_weights(tr_s, tr_l, trees, formulas)
 
-    tr_MCR, tr_MCR_vec = 100 * inc_evaluation(tr_s, tr_t, tr_l, trees, weights)     # TODO: Implement inc_evaluation method
+    tr_vote, tr_rho = inc_evaluation(tr_s, tr_l, nn_output)
     if te_s is None:
-        te_MCR, te_MCR_vec = None, None
+        te_vote, te_rho = None, None
     else:
-        te_MCR, te_MCR_vec = 100 * inc_evaluation(te_s, te_t, te_l, trees, weights)
+        te_vote, te_rho = inc_evaluation(te_s, te_l, nn_output)
 
-    return formulas, weights, tr_MCR, te_MCR, tr_MCR_vec, te_MCR_vec
-
-
-# ==============================================================================
-# -- Learn Formula() -----------------------------------------------------------
-# ==============================================================================
-def learn_formula(tr_s, tr_t, tr_l, primitives, args, te_s = None, te_t = None, te_l = None):
-    rho_path    = [np.inf for signal in tr_s]
-    D_t         = np.true_divide(np.ones(len(tr_s)), len(tr_s))
-    formula, weight, tr_MCR, te_MCR, tr_MCR_vec, te_MCR_vec = boosted_trees(tr_s, tr_t, tr_l, te_s, te_t, te_l,
-                                    rho_path, primitives, D_t, args)
-
-    return formula, weight, tr_MCR, te_MCR, tr_MCR_vec, te_MCR_vec
-
+    output_dict = {'formula': formulas, 'weight': nn_output, 'tr_vote': tr_vote,
+                    'te_vote': te_vote, 'tr_rho': tr_rho, 'te_rho': te_rho}
+    return output_dict
 
 # ==============================================================================
 # -- k-fold Learning() ---------------------------------------------------------
 # ==============================================================================
-def kfold_learning(filename, args):
-    mat_data        = loadmat(filename)
-    timepoints      = mat_data['t'][0]
-    labels          = mat_data['labels'][0]
-    signals         = mat_data['data']
-    num_dimension   = len(signals[0])
-    varnames = ['x_{}'.format(i) for i in range(num_dimension)]
-    traces = []
-    for i in range(len(signals)):
-        data = [signals[i][j] for j in range(num_dimension)]
-        trace = Trace(varnames, timepoints, data)
-        traces.append(trace)
-    signals_shape   = signals.shape
+def kfold_learning(signals, labels, timepoints, args):
     print('***************************************************************')
-    print('(Number of signals, dimension, timepoints):', signals_shape)
-
-    t0 = time.time()
-    seed_value = random.randrange(sys.maxsize)
+    print('(Number of signals, dimension, timepoints):', signals.shape)
+    tic         = time.time()
+    seed_value  = random.randrange(sys.maxsize)
     random.seed(seed_value)
-    k_fold = args.fold
-    primitives1 = make_stl_primitives1(signals)
-    primitives2 = make_stl_primitives2(signals)
-    primitives  = primitives1
+    primitives  = make_stl_primitives1(signals)
 
-    if k_fold <= 1:     # No cross-validation
-        formula, weight, tr_MCR, te_MCR, tr_MCR_vec, te_MCR_vec = learn_formula(signals, traces, labels, primitives, args)
-        print('***************************************************************')
-        print("Formula:", formula)
-        print("Train MCR:", tr_MCR)
-        print("Train MCR Vector:", tr_MCR_vec)
-        dt = time.time() - t0
-        print('Runtime:', dt)
-
-    else:
-        kf = KFold(n_splits = k_fold)
-        train_MCR, test_MCR = [], []
-        train_MCR_vec, test_MCR_vec = [], []
-        formulas, weights = [], []
-        fold_counter = 0
-        for train_index, test_index in kf.split(signals):
-            tr_signals  = np.array([signals[i] for i in train_index])
-            tr_traces   = np.array([traces[i] for i in train_index])
-            tr_labels   = np.array([labels[i] for i in train_index])
-            te_signals  = np.array([signals[i] for i in test_index])
-            te_traces   = np.array([traces[i] for i in test_index])
-            te_labels   = np.array([labels[i] for i in test_index])
-            fold_counter = fold_counter + 1
-            print('***********************************************************')
-            print("Fold {}:".format(fold_counter))
-            print('***********************************************************')
-            formula, weight, tr_MCR, te_MCR, tr_MCR_vec, te_MCR_vec = learn_formula(tr_signals, tr_traces, tr_labels,
-                                                    primitives, args, te_signals, te_traces, te_labels)
-            formulas.append(formula)
-            weights.append(weight)
-            prunes.append(prune)
-            train_MCR.append(tr_MCR)
-            test_MCR.append(te_MCR)
-            train_MCR_vec.append(tr_MCR_vec)
-            test_MCR_vec.append(te_MCR_vec)
-
-        fold_counter = 0
-        for f, w, tr, te, tr_vec, te_vec in zip(formulas, weights, train_MCR, test_MCR, train_MCR_vec, test_MCR_vec):
-            fold_counter = fold_counter + 1
-            print('***********************************************************')
-            print("Fold {}:".format(fold_counter))
-            print("Formula:", f)
-            print("Weight(s):", w)
-            print("Train MCR:", tr)
-            print("Test MCR:", te)
-            print("Train MCR vector:", tr_MCR_vec)
-            print("Test MCR vector:", te_MCR_vec)
-        print('***********************************************************')
-        print("Average training error:", sum(train_MCR)/float(k_fold))
-        print("Average testing error:", sum(test_MCR)/float(k_fold))
-        print("Seed:", seed_value)
-        dt = time.time() - t0
-        print('Runtime:', dt)
-
-
-# ==============================================================================
-# -- k-fold Cross-Validation() -------------------------------------------------
-# ==============================================================================
-def kfold_cross_validation(filename, args):
-    mat_data        = loadmat(filename)
-    timepoints      = mat_data['t'][0]
-    labels          = mat_data['labels'][0]
-    signals         = mat_data['data']
-    signals_shape   = signals.shape
-    print('***************************************************************')
-    print('(Number of signals, dimension, timepoints):', signals_shape)
-
-    t0 = time.time()
-    k_fold = args.fold
+    k_fold      = args.fold
     kf = KFold(n_splits = k_fold)
-    candidate_depths = [1, 2, 3]
-    candidate_numtrees = [1, 2, 3, 4]
-    candidate_k_max = [15, 30]
-    candidate_num_particles = [15, 30]
+    formulas, weights   = (np.empty(k_fold, dtype = object) for i in range(2))
+    tr_vote, te_vote    = (np.empty(k_fold, dtype = object) for i in range(2))
+    tr_rho, te_rho      = (np.empty(k_fold, dtype = object) for i in range(2))
 
-    parameters = []
-    for depth in candidate_depths:
-        for numtree in candidate_numtrees:
-            for k_max in candidate_k_max:
-                for num_particles in candidate_num_particles:
-                    args.depth = depth
-                    args.numtree = numtree
-                    args.k_max = k_max
-                    args.num_particles = num_particles
-                    train_MCR, test_MCR = [], []
-                    formulas = []
+    for k, (tr_ind, te_ind) in enumerate(kf.split(signals)):
+        tr_s, tr_l = signals[tr_ind], labels[tr_ind]
+        te_s, te_l = signals[te_ind], labels[te_ind]
+        print('***********************************************************')
+        print("Fold {}:".format(k + 1))
+        print('***********************************************************')
+        rho_path   = [np.inf for signal in tr_s]
+        res = boosted_trees(tr_s, tr_l, te_s, te_l, rho_path, primitives, args)
+        formulas[k], weights[k] = res['formula'], res['weight']
+        tr_vote[k], te_vote[k]  = res['tr_MCR_vote'], res['te_MCR_vote']
+        tr_rho[k], te_rho[k]    = res['tr_MCR_rho'], res['te_MCR_rho']
 
-                    for train_index, test_index in kf.split(signals):
-                        tr_signals  = np.array([signals[i] for i in train_index])
-                        tr_labels   = np.array([labels[i] for i in train_index])
-                        te_signals  = np.array([signals[i] for i in test_index])
-                        te_labels   = np.array([labels[i] for i in test_index])
-                        formula, weight, tr_MCR, te_MCR = learn_formula(tr_signals, tr_labels,
-                                                                te_signals, te_labels, args)
-                        formulas.append(formula)
-                        train_MCR.append(tr_MCR)
-                        test_MCR.append(te_MCR)
+    for k in range(k_fold):
+        print('**********************************************************')
+        print("Fold {}:".format(k + 1))
+        print("Formula: {} \nWeights: {}".format(formulas[k], weights[k]))
+        print("Train vote: {} \nTest vote: {}".format(tr_vote[k], te_vote[k]))
+        print("Train rho: {} \nTest rho: {}".format(tr_rho[k], te_rho[k]))
 
-                    error = sum(test_MCR)/float(k_fold)
-                    parameters.append([error, depth, numtree, k_max, num_particles])
+    print("Seed:", seed_value)
+    toc = time.time()
+    print('Total Runtime:', toc - tic)
 
-    best_error, best_depth, best_numtree, best_k_max, best_num_particles = min(parameters, key=lambda x: x[0])
-
-    dt = time.time() - t0
-    print('***********************************************************')
-    print('Best Depth:', best_depth)
-    print('Best num_trees:', best_numtree)
-    print('Best k_max:', best_k_max)
-    print('Best num_particles:', best_num_particles)
-    print('Runtime:', dt)
 # ==============================================================================
 # -- Parse Arguments() ---------------------------------------------------------
 # ==============================================================================
 def get_argparser():
     parser = argparse.ArgumentParser(formatter_class =
                                      argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('-a', '--action', metavar='A', default='learn', help=
-                            """
-                            action to take:
-                            'learn': builds a classifier for the given training
-                            set. The resulting stl formula will be printed.
-                            'cv': performs a cross validation test using the
-                            given training set.
-                            """)
     parser.add_argument('-d', '--depth', metavar='D', type=int,
                         default = 1, help='maximum depth of the decision tree')
     parser.add_argument('-n', '--numtree', metavar='N', type=int,
                         default = 1, help='Number of decision trees')
     parser.add_argument('-k', '--fold', metavar='K', type=int,
-                        default=0, help='K-fold cross-validation')
+                        default=2, help='K-fold cross-validation')
     parser.add_argument('-k_max', '--k_max', metavar='KMAX', type=int,
                         default = 15, help='k_max in pso')
     parser.add_argument('-n_p', '--num_particles', metavar='NP', type=int,
@@ -278,8 +185,11 @@ def get_path(f):
 # -- global variables and functions---------------------------------------------
 # ==============================================================================
 if __name__ == '__main__':
-    args = get_argparser().parse_args()
-    if args.action == 'learn':
-        kfold_learning(get_path(args.file), args)
-    else:
-        kfold_cross_validation(get_path(args.file), args)
+    args        = get_argparser().parse_args()
+    file_name   = get_path(args.file)
+    mat_data    = loadmat(file_name)
+    timepoints  = mat_data['t'][0]
+    labels      = mat_data['labels'][0]
+    signals     = mat_data['data']
+
+    kfold_learning(signals, labels, timepoints, args)
