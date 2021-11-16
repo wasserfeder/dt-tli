@@ -10,8 +10,9 @@ def get_horizons(trees, formulas):
         children = tree.get_children()
         tree_horizon = []
         for child in children:
-            tree_horizon.append(child.high)
+            tree_horizon.append(int(child.high))
         horizons[i] = max(tree_horizon)
+    horizons = horizons
     return horizons
 
 
@@ -26,14 +27,14 @@ def get_weights(signals, labels, trees, formulas):
 
     # Structure of the nn_output: {'t': [[trees], [weights]]}, which includes all time steps
     nn_output = {}
-    prev_active_formulas = []
+    prev_active_formulas = np.array([])
     prev_active_trees = np.array([])
 
     rhos = None
     for t in range(signal_horizon):
         max_ind = np.searchsorted(formula_horizons, t)
         if (max_ind == 0) and t < formula_horizons[max_ind]:
-            active_formulas = []
+            active_formulas = np.array([])
             active_trees = np.array([])
         elif max_ind >= len(formula_horizons):
             active_formulas = formulas
@@ -48,7 +49,7 @@ def get_weights(signals, labels, trees, formulas):
         signals_par = signals[:,:,:t+1]
         if len(active_formulas) == 0:
             nn_output[t] = []
-        elif active_formulas == prev_active_formulas:
+        elif len(active_formulas) == len(prev_active_formulas):
             nn_output[t] = nn_output[t-1]
         else:
             rhos = compute_rhos(signals_par, rhos, active_trees, prev_active_trees)

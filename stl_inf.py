@@ -116,10 +116,10 @@ def inc_tree(signals, labels, rho_path, depth, primitives, args):
         return None
 
     prim, impurity, rhos = best_prim(signals, labels, rho_path, primitives,args)
-    print('***************************************************************')
-    print('Depth:', args.depth - depth + 1)
-    print('Primitive:', prim)
-    print('impurity:', impurity)
+    # print('***************************************************************')
+    # print('Depth:', args.depth - depth + 1)
+    # print('Primitive:', prim)
+    # print('impurity:', impurity)
 
     tree = DTree(prim)
     pos_rho_ind, neg_rho_ind    = np.where(rhos >= 0)[0], np.where(rhos < 0)[0]
@@ -143,8 +143,8 @@ def best_prim(signals, labels, rho_path, primitives, args):
     opt_prims = []
     for primitive in primitives:
         primitive = copy.deepcopy(primitive)
-        print('***************************************************************')
-        print("candidate primitive:", primitive)
+        # print('***************************************************************')
+        # print("candidate primitive:", primitive)
         if primitive.child.op == 8:
             primitive_type = 1
         else:

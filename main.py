@@ -18,18 +18,45 @@ from sklearn.model_selection import KFold
 import matplotlib.pyplot as plt
 from stl_prim import make_stl_primitives1
 from stl_inf import inc_tree
-from nn_preparation import get_weights
-sys.path.append("/home/erfan/Documents/University/Projects/Learning_Specifications/python-stl/stl")
+from nn_preparation import get_weights, get_horizons, compute_rhos
+sys.path.append("../../python-stl/stl")
 
 # ==============================================================================
 # ---- Incremental Evaluation ----------------------------------------------
 # ==============================================================================
-def inc_evaluation(signals, labels, nn_output):
+def inc_evaluation(signals, labels, eval_times, nn_output):
     signal_horizon = len(signals[0][0])
     MCR_vote, MCR_rho = np.zeros(signal_horizon), np.zeros(signal_horizon)
+    prev_active_trees = np.array([])
+    rhos = None
+    for i in range(len(eval_times)):
+        active_trees = nn_output[eval_times[i]][0]
+        weights = nn_output[eval_times[i]][1]
+        signals_par = signals[:,:, :int(eval_times[i]+1)]
+        rhos = compute_rhos(signals_par, rhos, active_trees, prev_active_trees)
+        prev_active_trees = active_trees
+        pred_labels = np.zeros(len(signals))
+        for j in range(len(signals)):
+            pred_rho = np.dot(rhos[j], weights)
+            if pred_rho >= 0:
+                pred_labels[j] = 1
+            else:
+                pred_labels[j] = -1
+        MCR_rho[int(eval_times[i])] = (float(np.sum(labels != pred_labels))/float(len(labels))) * 100
 
-    # return MCR_vote, MCR_rho
-    return None, None
+
+    for t in range(signal_horizon):
+        if t < eval_times[0]:
+            MCR_rho[t] = 50
+        elif t > eval_times[-1]:
+            MCR_rho[t] = MCR_rho[t-1]
+        elif t not in eval_times:
+            MCR_rho[t] = MCR_rho[t-1]
+        else:
+            MCR_rho[t] = MCR_rho[t]
+
+
+    return MCR_vote, MCR_rho
 
 
 # ==============================================================================
@@ -47,32 +74,38 @@ def signal_distance(pos_signal, neg_signal):
 # -- check growth condition() ------------------------------------------
 # ==============================================================================
 def check_growth(pos_signals, neg_signals):
-    timepoints = len(pos_signals[0][0])
-    mean_distances = np.zeros(timepoints)
-    len_pos, len_neg = len(pos_signals), len(neg_signals)
-    for t in range(timepoints):
+    tic                 = time.time()
+    signal_horizon      = len(pos_signals[0][0])
+    mean_d              = np.zeros(signal_horizon)
+    num_pos, num_neg    = len(pos_signals), len(neg_signals)
+    for t in range(signal_horizon):
         pos_signals_par = pos_signals[:, :, t]
         neg_signals_par = neg_signals[:, :, t]
         distance_array = []
-        for p in range(len_pos):
+        for p in range(num_pos):
             pos_signal = pos_signals_par[p]
-            for n in range(len_neg):
+            for n in range(num_neg):
                 neg_signal = neg_signals_par[n]
                 distance = signal_distance(pos_signal, neg_signal)
                 distance_array.append(distance)
-        mean_distances[t] = np.mean(distance_array)
+        mean_d[t] = np.mean(distance_array)
 
     zero_ind = []
-    for i in range(1, timepoints-1):
-        if ((mean_distances[i] > mean_distances[i-1]) and (mean_distances[i] > mean_distances[i+1])) or ((mean_distances[i] < mean_distances[i-1]) and (mean_distances[i] < mean_distances[i+1])):
+    for i in range(1, signal_horizon-1):
+        local_max = (mean_d[i] > mean_d[i-1]) and (mean_d[i] > mean_d[i+1])
+        local_min = (mean_d[i] < mean_d[i-1]) and (mean_d[i] < mean_d[i+1])
+        if local_max or local_min:
             zero_ind.append(i)
 
     decision_times = [zero_ind[0]]
     for i in range(len(zero_ind)-1):
         decision_times.append(int(0.5*(zero_ind[i] + zero_ind[i+1])))
         decision_times.append(zero_ind[i+1])
-    decision_times.append(timepoints-1)
+    decision_times.append(signal_horizon-1)
+    decision_times = np.array(decision_times)
+    toc = time.time()
     print("Decision Times:", decision_times)
+    print("Signals Analysis Runtime: ", toc - tic)
     return decision_times
 
 
@@ -80,17 +113,16 @@ def check_growth(pos_signals, neg_signals):
 # -- Boosted Decision Tree Learning() ------------------------------------------
 # ==============================================================================
 def boosted_trees(tr_s, tr_l, te_s, te_l, rho_path, primitives, args):
-    tr_pos_ind, tr_neg_ind = np.where(tr_l > 0)[0], np.where(tr_l <= 0)[0]
-    pos_signals, neg_signals = signals[tr_pos_ind], signals[tr_neg_ind]
-    # decision_times = check_growth(pos_signals, neg_signals)
+    tr_pos_ind, tr_neg_ind      = np.where(tr_l > 0)[0], np.where(tr_l <= 0)[0]
+    pos_signals, neg_signals    = signals[tr_pos_ind], signals[tr_neg_ind]
+    # decision_times              = check_growth(pos_signals, neg_signals)
     ##### For naval:
     decision_times = [12, 15, 18, 26, 34, 37, 41, 60]
-
-    depth, tree_limit = args.depth, 5
-    trees, formulas = [], []
+    tic = time.time()
+    depth, tree_limit   = args.depth, 5
+    trees, formulas     = (np.array([], dtype = object) for i in range(2))
     for t in decision_times:
-        tree = None
-        tree_counter = 0
+        tree, tree_counter = None, 0
         tr_s_par = tr_s[:,:,:t]
         while (tree is None and tree_counter < tree_limit):
             tree = inc_tree(tr_s_par, tr_l, rho_path, depth, primitives, args)
@@ -100,19 +132,17 @@ def boosted_trees(tr_s, tr_l, te_s, te_l, rho_path, primitives, args):
                 pred_labels = np.array([tree.classify(s) for s in tr_s_par])
                 epsilon = tr_l != pred_labels
                 if sum(epsilon)/len(tr_s) <= 0.5:
-                    trees.append(tree)
-                    formulas.append(formula)
+                    trees = np.append(trees, tree)
+                    formulas = np.append(formulas, formula)
                 else:
                     tree = None
+    toc = time.time()
+    print("Learning Trees Runtime: ", toc - tic)
 
-    nn_output = get_weights(tr_s, tr_l, trees, formulas)
-
-    tr_vote, tr_rho = inc_evaluation(tr_s, tr_l, nn_output)
-    if te_s is None:
-        te_vote, te_rho = None, None
-    else:
-        te_vote, te_rho = inc_evaluation(te_s, te_l, nn_output)
-
+    nn_output       = get_weights(tr_s, tr_l, trees, formulas)
+    eval_times      = get_horizons(trees, formulas)
+    tr_vote, tr_rho = inc_evaluation(tr_s, tr_l, eval_times, nn_output)
+    te_vote, te_rho = inc_evaluation(te_s, te_l, eval_times, nn_output)
     output_dict = {'formula': formulas, 'weight': nn_output, 'tr_vote': tr_vote,
                     'te_vote': te_vote, 'tr_rho': tr_rho, 'te_rho': te_rho}
     return output_dict
@@ -129,7 +159,7 @@ def kfold_learning(signals, labels, timepoints, args):
     primitives  = make_stl_primitives1(signals)
 
     k_fold      = args.fold
-    kf = KFold(n_splits = k_fold)
+    kf          = KFold(n_splits = k_fold)
     formulas, weights   = (np.empty(k_fold, dtype = object) for i in range(2))
     tr_vote, te_vote    = (np.empty(k_fold, dtype = object) for i in range(2))
     tr_rho, te_rho      = (np.empty(k_fold, dtype = object) for i in range(2))
@@ -143,14 +173,15 @@ def kfold_learning(signals, labels, timepoints, args):
         rho_path   = [np.inf for signal in tr_s]
         res = boosted_trees(tr_s, tr_l, te_s, te_l, rho_path, primitives, args)
         formulas[k], weights[k] = res['formula'], res['weight']
-        tr_vote[k], te_vote[k]  = res['tr_MCR_vote'], res['te_MCR_vote']
-        tr_rho[k], te_rho[k]    = res['tr_MCR_rho'], res['te_MCR_rho']
+        tr_vote[k], te_vote[k]  = res['tr_vote'], res['te_vote']
+        tr_rho[k], te_rho[k]    = res['tr_rho'], res['te_rho']
 
     for k in range(k_fold):
         print('**********************************************************')
         print("Fold {}:".format(k + 1))
-        print("Formula: {} \nWeights: {}".format(formulas[k], weights[k]))
-        print("Train vote: {} \nTest vote: {}".format(tr_vote[k], te_vote[k]))
+        print("Formula: {}".format(formulas[k]))
+        # print("Formula: {} \nWeights: {}".format(formulas[k], weights[k]))
+        # print("Train vote: {} \nTest vote: {}".format(tr_vote[k], te_vote[k]))
         print("Train rho: {} \nTest rho: {}".format(tr_rho[k], te_rho[k]))
 
     print("Seed:", seed_value)
@@ -165,8 +196,8 @@ def get_argparser():
                                      argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-d', '--depth', metavar='D', type=int,
                         default = 1, help='maximum depth of the decision tree')
-    parser.add_argument('-n', '--numtree', metavar='N', type=int,
-                        default = 1, help='Number of decision trees')
+    # parser.add_argument('-n', '--numtree', metavar='N', type=int,
+    #                     default = 1, help='Number of decision trees')
     parser.add_argument('-k', '--fold', metavar='K', type=int,
                         default=2, help='K-fold cross-validation')
     parser.add_argument('-k_max', '--k_max', metavar='KMAX', type=int,
@@ -179,7 +210,6 @@ def get_argparser():
 
 def get_path(f):
     return os.path.join(os.getcwd(), f)
-
 
 # ==============================================================================
 # -- global variables and functions---------------------------------------------

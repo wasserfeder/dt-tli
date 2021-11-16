@@ -32,7 +32,7 @@ def learn_weights(inputs, outputs):
     criterion = nn.BCELoss()
     optimizer = torch.optim.SGD(model.parameters(), lr = learning_rate)
 
-    num_epochs = 500
+    num_epochs = 1000
 
     for epoch in range(num_epochs):
         y_pred = model(X)
