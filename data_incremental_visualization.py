@@ -23,13 +23,13 @@ def signal_distance(pos_signal, neg_signal):
 
 
 def compute_distance(pos_signals, neg_signals, timepoints):
-    distances = np.zeros(len(timepoints))
-    min_distances = np.zeros(len(timepoints))
-    max_distances = np.zeros(len(timepoints))
-    mean_distances = np.zeros(len(timepoints))
-    std_distances = np.zeros(len(timepoints))
+    distances = np.zeros(timepoints)
+    min_distances = np.zeros(timepoints)
+    max_distances = np.zeros(timepoints)
+    mean_distances = np.zeros(timepoints)
+    std_distances = np.zeros(timepoints)
     len_pos, len_neg = len(pos_signals), len(neg_signals)
-    for t in range(len(timepoints)):
+    for t in range(timepoints):
         pos_signals_par = pos_signals[:, :, t]
         neg_signals_par = neg_signals[:, :, t]
         distance_array = []
@@ -67,44 +67,46 @@ if __name__ == '__main__':
     args        = get_argparser().parse_args()
     file_name   = get_path(args.file)
     mat_data    = loadmat(file_name)
-    timepoints  = mat_data['t'][0]
+
     labels      = mat_data['labels'][0]
     signals     = mat_data['data']
+    timepoints = len(signals[0][0])
 
     pos_ind, neg_ind = np.where(labels > 0)[0], np.where(labels <= 0)[0]
     pos_signals, neg_signals = signals[pos_ind], signals[neg_ind]
     sum_d, max_d, min_d, mean_d, std_d = compute_distance(pos_signals, neg_signals, timepoints)
 
+    timepoints = np.arange(timepoints)
     distance_fig = plt.figure()
-    plt.plot(timepoints/5, sum_d, linewidth = 4)
+    plt.plot(timepoints, sum_d, linewidth = 4)
     plt.xlabel(r'\textbf{Time}')
     plt.ylabel(r'\textbf{Sum of Distance}')
 
     max_distance_fig = plt.figure()
-    plt.plot(timepoints/5, max_d, linewidth = 4)
+    plt.plot(timepoints, max_d, linewidth = 4)
     plt.xlabel(r'\textbf{Time}')
     plt.ylabel(r'\textbf{Maximum Distance}')
 
     min_distance_fig = plt.figure()
-    plt.plot(timepoints/5, min_d, linewidth = 4)
+    plt.plot(timepoints, min_d, linewidth = 4)
     plt.xlabel(r'\textbf{Time}')
     plt.ylabel(r'\textbf{Minimum Distance}')
 
 
     mean_distance_fig = plt.figure()
-    plt.plot(timepoints/5, mean_d, linewidth = 4)
+    plt.plot(timepoints, mean_d, linewidth = 4)
     plt.xlabel(r'\textbf{Time}')
     plt.ylabel(r'\textbf{Mean Distance}')
 
 
     std_distance_fig = plt.figure()
-    plt.plot(timepoints/5, std_d, linewidth = 4)
+    plt.plot(timepoints, std_d, linewidth = 4)
     plt.xlabel(r'\textbf{Time}')
     plt.ylabel(r'\textbf{STD Distance}')
 
 
     first_deriv_fig = plt.figure()
-    plt.plot(timepoints/5, np.gradient(mean_d), linewidth = 4)
+    plt.plot(timepoints, np.gradient(mean_d), linewidth = 4)
     plt.xlabel(r'\textbf{Time}')
     plt.ylabel(r'\textbf{First Derivative}')
 

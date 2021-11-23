@@ -116,8 +116,12 @@ def boosted_trees(tr_s, tr_l, te_s, te_l, rho_path, primitives, args):
     tr_pos_ind, tr_neg_ind      = np.where(tr_l > 0)[0], np.where(tr_l <= 0)[0]
     pos_signals, neg_signals    = signals[tr_pos_ind], signals[tr_neg_ind]
     # decision_times              = check_growth(pos_signals, neg_signals)
-    ##### For naval:
-    decision_times = [12, 15, 18, 26, 34, 37, 41, 60]
+    ##### For old-naval:
+    # decision_times = [12, 15, 18, 26, 34, 37, 41, 60]
+    ##### For new-naval:
+    # decision_times = [12, 15, 20, 26, 35, 37, 41, 60]
+    ##### For carla:
+    decision_times = [101, 128, 166, 186, 273, 394, 420, 440, 476]
     tic = time.time()
     depth, tree_limit   = args.depth, 5
     trees, formulas     = (np.array([], dtype = object) for i in range(2))
@@ -138,6 +142,14 @@ def boosted_trees(tr_s, tr_l, te_s, te_l, rho_path, primitives, args):
                     tree = None
     toc = time.time()
     print("Learning Trees Runtime: ", toc - tic)
+    all_params = []
+    horizons = get_horizons(trees, formulas)
+    for i in range(len(trees)):
+        all_params.append([trees[i], formulas[i], horizons[i]])
+    all_params = sorted(all_params, key=lambda x: x[2])
+    all_params = np.array(all_params)
+    trees = all_params[:, 0]
+    formulas = all_params[:, 1]
 
     nn_output       = get_weights(tr_s, tr_l, trees, formulas)
     eval_times      = get_horizons(trees, formulas)
@@ -150,7 +162,7 @@ def boosted_trees(tr_s, tr_l, te_s, te_l, rho_path, primitives, args):
 # ==============================================================================
 # -- k-fold Learning() ---------------------------------------------------------
 # ==============================================================================
-def kfold_learning(signals, labels, timepoints, args):
+def kfold_learning(signals, labels, args):
     print('***************************************************************')
     print('(Number of signals, dimension, timepoints):', signals.shape)
     tic         = time.time()
@@ -196,8 +208,6 @@ def get_argparser():
                                      argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-d', '--depth', metavar='D', type=int,
                         default = 1, help='maximum depth of the decision tree')
-    # parser.add_argument('-n', '--numtree', metavar='N', type=int,
-    #                     default = 1, help='Number of decision trees')
     parser.add_argument('-k', '--fold', metavar='K', type=int,
                         default=2, help='K-fold cross-validation')
     parser.add_argument('-k_max', '--k_max', metavar='KMAX', type=int,
@@ -218,8 +228,7 @@ if __name__ == '__main__':
     args        = get_argparser().parse_args()
     file_name   = get_path(args.file)
     mat_data    = loadmat(file_name)
-    timepoints  = mat_data['t'][0]
     labels      = mat_data['labels'][0]
     signals     = mat_data['data']
 
-    kfold_learning(signals, labels, timepoints, args)
+    kfold_learning(signals, labels, args)
