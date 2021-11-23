@@ -116,9 +116,7 @@ def boosted_trees(tr_s, tr_l, te_s, te_l, rho_path, primitives, args):
     tr_pos_ind, tr_neg_ind      = np.where(tr_l > 0)[0], np.where(tr_l <= 0)[0]
     pos_signals, neg_signals    = signals[tr_pos_ind], signals[tr_neg_ind]
     # decision_times              = check_growth(pos_signals, neg_signals)
-    ##### For old-naval:
-    # decision_times = [12, 15, 18, 26, 34, 37, 41, 60]
-    ##### For new-naval:
+    ##### For naval:
     # decision_times = [12, 15, 20, 26, 35, 37, 41, 60]
     ##### For carla:
     decision_times = [101, 128, 166, 186, 273, 394, 420, 440, 476]
