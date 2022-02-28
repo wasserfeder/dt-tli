@@ -6,12 +6,13 @@ import os
 import sys
 
 try:
-    sys.path.append(glob.glob('../../carla/dist/carla-*%d.%d-%s.egg' % (
+    sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
         sys.version_info.major,
         sys.version_info.minor,
         'win-amd64' if os.name == 'nt' else 'linux-x86_64'))[0])
 except IndexError:
     pass
+
 
 # ==============================================================================
 # -- imports -------------------------------------------------------------------
@@ -922,14 +923,14 @@ def game_loop(args):
         if world is not None:
             world.destroy()
 
-        example_dict = {'player_x': player_x, 'player_y': player_y, 'player_z': player_z,
-                        'player_v_x': player_v_x, 'player_v_y': player_v_y, 'player_v_z': player_v_z,
-                        'other_x': other_x, 'other_y': other_y, 'other_z': other_z,
-                        'other_v_x': other_v_x, 'other_v_y': other_v_y, 'other_v_z': other_v_z,
-                        'time_history': time_history}
-        pickle_out = open("data_set/neg_label{}.pickle".format(args.count),"wb")
-        pickle.dump(example_dict, pickle_out)
-        pickle_out.close()
+        # example_dict = {'player_x': player_x, 'player_y': player_y, 'player_z': player_z,
+        #                 'player_v_x': player_v_x, 'player_v_y': player_v_y, 'player_v_z': player_v_z,
+        #                 'other_x': other_x, 'other_y': other_y, 'other_z': other_z,
+        #                 'other_v_x': other_v_x, 'other_v_y': other_v_y, 'other_v_z': other_v_z,
+        #                 'time_history': time_history}
+        # pickle_out = open("data_set/neg_label{}.pickle".format(args.count),"wb")
+        # pickle.dump(example_dict, pickle_out)
+        # pickle_out.close()
 
         pygame.quit()
 

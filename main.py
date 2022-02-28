@@ -9,6 +9,7 @@ from scipy.io import loadmat, savemat
 import argparse
 import os
 import time
+sys.dont_write_bytecode = True
 from stl_prim import make_stl_primitives1, make_stl_primitives2
 from stl_inf import normal_tree, pruned_tree
 from sklearn.model_selection import KFold
