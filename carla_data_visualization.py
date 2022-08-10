@@ -23,6 +23,25 @@ def draw_results(mat_data):
     num_dimensions  = len(signals[0])
 
 
+    carla_yvy_fig = plt.figure()
+    for i in range(num_signals):
+        if labels[i] > 0:
+            plt.plot(signals[i][2], signals[i][0], color='green', linewidth = 1, label=r'\textbf{Positive Signals}')
+        else:
+            plt.plot(signals[i][2], signals[i][0], color='red', linewidth = 1, label=r'\textbf{Negative Signals}')
+    plt.tick_params(axis='both', labelsize = 22, labelcolor = 'black')
+    plt.plot([0, 30], [14.01, 14.01], color = 'black', linewidth = 6, linestyle = '--')
+    plt.plot([7.45, 7.45], [0, 60], color = 'black', linewidth = 6, linestyle = '--')
+    plt.xlim((0, 30))
+    plt.ylim((0, 60))
+    plt.xlabel(r'\textbf{v_y (m/s)}')
+    plt.ylabel(r'\textbf{Y (m)}')
+    plt.grid(True)
+    plt.show(block = False)
+    carla_yvy_fig.savefig('../figures/Carla/carla_traj.svg', format='svg')
+
+
+
     carla_yz_fig = plt.figure()
     for i in range(num_signals):
         if labels[i] > 0:
@@ -92,7 +111,7 @@ def draw_results(mat_data):
     plt.grid(True)
     plt.show(block = False)
     # plt.title(r'\textbf{X component of naval signals}')
-    # naval_x_fig.savefig('/home/erfan/Documents/University/Projects/Learning_Specifications/nonincremental_tli/figures/naval_x.eps', format='eps')
+    carla_y_fig.savefig('../figures/Carla/carla_y.svg', format='svg')
     # naval_x_fig.savefig('/home/erfan/Documents/University/Projects/Learning_Specifications/nonincremental_tli/figures/naval_x.png', format='png')
 
 
@@ -139,7 +158,7 @@ def draw_results(mat_data):
     plt.grid(True)
     plt.show(block = False)
     # plt.title(r'\textbf{X component of naval signals}')
-    # naval_x_fig.savefig('/home/erfan/Documents/University/Projects/Learning_Specifications/nonincremental_tli/figures/naval_x.eps', format='eps')
+    carla_vy_fig.savefig('../figures/Carla/carla_vy.svg', format='svg')
     # naval_x_fig.savefig('/home/erfan/Documents/University/Projects/Learning_Specifications/nonincremental_tli/figures/naval_x.png', format='png')
 
 
@@ -160,6 +179,27 @@ def draw_results(mat_data):
     # plt.title(r'\textbf{X component of naval signals}')
     # naval_x_fig.savefig('/home/erfan/Documents/University/Projects/Learning_Specifications/nonincremental_tli/figures/naval_x.eps', format='eps')
     # naval_x_fig.savefig('/home/erfan/Documents/University/Projects/Learning_Specifications/nonincremental_tli/figures/naval_x.png', format='png')
+
+
+    carla_tr_te_fig = plt.figure()
+    num_tree = [1, 2, 3, 4, 5, 6]
+    tr_m = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    tr_s = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    te_m = [1.00, 0.67, 0.33, 0.00, 1.00, 0.33]
+    te_s = [1.33, 0.82, 0.66, 0.00, 1.33, 0.66]
+    plt.plot(num_tree, tr_m, color = 'black', linewidth = 2, label=r'\textbf{TR-M}')
+    plt.plot(num_tree, tr_s, color = 'black', linestyle = '--', linewidth = 2, label=r'\textbf{TR-S}')
+    plt.plot(num_tree, te_m, color = 'red', linewidth = 2, label=r'\textbf{TE-M}')
+    plt.plot(num_tree, te_s, color = 'red', linestyle = '--', linewidth = 2, label=r'\textbf{TE-S}')
+    plt.legend(loc = 'upper right')
+    plt.tick_params(axis='both', labelsize = 22, labelcolor = 'black')
+    plt.xlim((1, 6))
+    plt.ylim((-0.05, 2.3))
+    plt.xlabel(r'\textbf{Number of trees}')
+    plt.ylabel(r'\textbf{Metric value (\%)}')
+    plt.grid(True)
+    plt.show(block = False)
+    carla_tr_te_fig.savefig('../figures/Carla/carla_tr_te.svg', format='svg')
 
 
     plt.show()

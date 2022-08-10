@@ -45,7 +45,7 @@ def draw_results(mat_data):
     plt.grid(True)
     plt.show(block = False)
     # plt.title(r'\textbf{Original Naval Scenario}')
-    # navalfig.savefig('/home/erfan/Documents/University/Projects/Learning_Specifications/nonincremental_tli/figures/naval.eps', format='eps')
+    navalfig.savefig('../figures/Naval/naval_traj.svg', format='svg')
     # navalfig.savefig('/home/erfan/Documents/University/Projects/Learning_Specifications/nonincremental_tli/figures/naval.png', format='png')
 
 
@@ -78,7 +78,7 @@ def draw_results(mat_data):
     plt.grid(True)
     plt.show(block = False)
     # plt.title(r'\textbf{X component of naval signals}')
-    # naval_x_fig.savefig('/home/erfan/Documents/University/Projects/Learning_Specifications/nonincremental_tli/figures/naval_x.eps', format='eps')
+    naval_x_fig.savefig('../figures/Naval/naval_x.svg', format='svg')
     # naval_x_fig.savefig('/home/erfan/Documents/University/Projects/Learning_Specifications/nonincremental_tli/figures/naval_x.png', format='png')
 
 
@@ -110,7 +110,7 @@ def draw_results(mat_data):
     plt.grid(True)
     plt.show(block = False)
     # plt.title(r'\textbf{Y component of naval signals}')
-    # naval_y_fig.savefig('/home/erfan/Documents/University/Projects/Learning_Specifications/nonincremental_tli/figures/naval_y.eps', format='eps')
+    naval_y_fig.savefig('../figures/Naval/naval_y.svg', format='svg')
     # naval_y_fig.savefig('/home/erfan/Documents/University/Projects/Learning_Specifications/nonincremental_tli/figures/naval_y.png', format='png')
 
 
@@ -175,8 +175,25 @@ def draw_results(mat_data):
     # rotated_x_fig.savefig('/home/erfan/Documents/University/Projects/Learning_Specifications/nonincremental_tli/figures/rotated_x.eps', format='eps')
     # rotated_x_fig.savefig('/home/erfan/Documents/University/Projects/Learning_Specifications/nonincremental_tli/figures/rotated_x.png', format='png')
 
-
-
+    naval_tr_te_fig = plt.figure()
+    num_tree = [1, 2, 3, 4, 5, 6]
+    tr_m = [0.36, 0.34, 0.01, 0.05, 0.01, 0.00]
+    tr_s = [0.35, 0.21, 0.02, 0.10, 0.02, 0.00]
+    te_m = [0.95, 0.55, 0.00, 0.10, 0.10, 0.05]
+    te_s = [0.97, 0.33, 0.00, 0.12, 0.20, 0.10]
+    plt.plot(num_tree, tr_m, color = 'black', linewidth = 2, label=r'\textbf{TR-M}')
+    plt.plot(num_tree, tr_s, color = 'black', linestyle = '--', linewidth = 2, label=r'\textbf{TR-S}')
+    plt.plot(num_tree, te_m, color = 'red', linewidth = 2, label=r'\textbf{TE-M}')
+    plt.plot(num_tree, te_s, color = 'red', linestyle = '--', linewidth = 2, label=r'\textbf{TE-S}')
+    plt.legend(loc = 'upper right')
+    plt.tick_params(axis='both', labelsize = 22, labelcolor = 'black')
+    plt.xlim((1, 6))
+    plt.ylim((-0.05, 1.5))
+    plt.xlabel(r'\textbf{Number of trees}')
+    plt.ylabel(r'\textbf{Metric value (\%)}')
+    plt.grid(True)
+    plt.show(block = False)
+    naval_tr_te_fig.savefig('../figures/Naval/naval_tr_te.svg', format='svg')
 
     plt.show()
 
