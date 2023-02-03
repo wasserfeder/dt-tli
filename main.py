@@ -16,8 +16,8 @@ from stl_inf import normal_tree, pruned_tree
 from sklearn.model_selection import KFold
 import random
 import pickle
-sys.path.append("/home/erfan/Documents/University/Projects/Learning_Specifications/python-stl/stl")
-
+# sys.path.append("/home/erfan/Documents/University/Projects/Learning_Specifications/python-stl/stl")
+sys.path.append("C:\TERRAA\ManeuverGame\python-stl\stl")
 from stl import Trace
 from stl_inf import best_prim
 
@@ -34,12 +34,12 @@ def bdt_evaluation(signals, traces, labels, trees, weights, numtree):
             m_counter +=1
             index = i
     if m_counter == 1:
-        test = test + weights[index] * np.array([trees[index].classify(signal)
-                                                        for signal in signals])
+        test = test + weights[index] * np.array([trees[index].classify(signal,trace)
+                                                        for (signal,trace) in zip(signals,traces)])
     else:
         for i in range(numtree):
-            test = test + weights[i] * np.array([trees[i].classify(signal)
-                                                        for signal in signals])
+            test = test + weights[i] * np.array([trees[i].classify(signal,trace)
+                                                        for (signal,trace) in zip(signals,traces)])
 
     test = np.sign(test)
     return np.count_nonzero(labels - test) / float(len(labels))
@@ -67,7 +67,7 @@ def boosted_trees(tr_s, tr_t, tr_l, te_s, te_t, te_l, rho_path, primitives, D_t,
         else:
             trees[t] = normal_tree(tr_s, tr_t, tr_l, rho_path, depth, primitives, D_t, args)
         formulas[t] = trees[t].get_formula()
-        pred_labels = np.array([trees[t].classify(signal) for signal in tr_s])
+        pred_labels = np.array([trees[t].classify(signal,trace) for (signal,trace) in zip(tr_s,tr_t)])
         for i in range(len(tr_s)):
             if tr_l[i] != pred_labels[i]:
                 epsilon[t] = epsilon[t] + D_t[i]
@@ -139,7 +139,7 @@ def kfold_learning(filename, args):
     if k_fold <= 1:     # No cross-validation
         formula, weight, prunes, tr_MCR, te_MCR = learn_formula(signals, traces, labels, primitives, args)
         print('***************************************************************')
-        print("Formula:", formula)
+        print("Formula:", formula[0])
         if args.prune:
             print("Pruning Record:", prunes)
         print("Train MCR:", tr_MCR)
@@ -175,7 +175,7 @@ def kfold_learning(filename, args):
             fold_counter = fold_counter + 1
             print('***********************************************************')
             print("Fold {}:".format(fold_counter))
-            print("Formula:", f)
+            print("Formula:", f[0])
             print("Weight(s):", w)
             if args.prune:
                 print("Pruning Record:", p)
@@ -198,6 +198,16 @@ def kfold_cross_validation(filename, args):
     labels          = mat_data['labels'][0]
     signals         = mat_data['data']
     signals_shape   = signals.shape
+
+    num_dimension   = len(signals[0])
+    varnames = ['x_{}'.format(i) for i in range(num_dimension)]
+    traces = []
+    for i in range(len(signals)):
+        data = [signals[i][j] for j in range(num_dimension)]
+        trace = Trace(varnames, timepoints, data)
+        traces.append(trace)
+    primitives = make_stl_primitives1(signals)
+
     print('***************************************************************')
     print('(Number of signals, dimension, timepoints):', signals_shape)
 
@@ -224,10 +234,14 @@ def kfold_cross_validation(filename, args):
                     for train_index, test_index in kf.split(signals):
                         tr_signals  = np.array([signals[i] for i in train_index])
                         tr_labels   = np.array([labels[i] for i in train_index])
+                        tr_t        = np.array([traces[i] for i in train_index])
                         te_signals  = np.array([signals[i] for i in test_index])
                         te_labels   = np.array([labels[i] for i in test_index])
-                        formula, weight, tr_MCR, te_MCR = learn_formula(tr_signals, tr_labels,
-                                                                te_signals, te_labels, args)
+                        te_t        = np.array([traces[i] for i in test_index])
+                        # TODO: make primitives
+                    #    learn_formula(tr_s, tr_t, tr_l, primitives, args, te_s = None, te_t = None, te_l = None):
+                        formula, weight, _, tr_MCR, te_MCR = learn_formula(tr_s=tr_signals, tr_t=tr_t,tr_l=tr_labels,
+                                                                te_s=te_signals, te_l=te_labels, te_t=te_t,args=args,primitives=primitives)
                         formulas.append(formula)
                         train_MCR.append(tr_MCR)
                         test_MCR.append(te_MCR)

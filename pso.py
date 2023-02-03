@@ -2,30 +2,55 @@ import numpy as np
 import random
 from numpy import linalg as LA
 from stl_prim import set_stl1_pars, set_stl2_pars
+
+import sys
+sys.path.append("C:\TERRAA\ManeuverGame\python-stl\stl")
+from stl import TraceBatch
 import copy
 
 
-def compute_robustness(signals, params, primitive, primitive_type, rho_paths):
-    rhos = [0] * len(signals)
-    if primitive_type == 1:
-        index = int(primitive.child.variable.split("_")[1])
-        threshold = params[0]
-        t0, t1 = int(params[1]), int(params[2])
-        if primitive.op == 6:
-            if primitive.child.relation == 2:
-                for i in range(len(signals)):
-                    rhos[i] = np.min([np.max([threshold - signals[i][index][t] for t in range(t0, t1+1)]), rho_paths[i]])
-            else:
-                for i in range(len(signals)):
-                    rhos[i] = np.min([np.max([signals[i][index][t] - threshold for t in range(t0, t1+1)]), rho_paths[i]])
-        else:
-            if primitive.child.relation == 2:
-                for i in range(len(signals)):
-                    rhos[i] = np.min([np.min([threshold - signals[i][index][t] for t in range(t0, t1+1)]), rho_paths[i]])
-            else:
-                for i in range(len(signals)):
-                    rhos[i] = np.min([np.min([signals[i][index][t] - threshold for t in range(t0, t1+1)]), rho_paths[i]])
-        return rhos
+def compute_robustness(signals, traces, params, primitive, primitive_type, rho_paths):
+    # if np.any(np.array(rho_paths)<np.inf):
+    #     print('RHO!!!')
+    
+    # ok all of these look at min between rho_paths and rho computed for primitives
+    # compute stl batch robustness, then take min and convert to list?
+    num_dimension   = len(signals[0])
+    varnames = ['x_{}'.format(i) for i in range(num_dimension)]
+    # this assumes identical sampling rate for all signals. if not, we need to modify to include time explicity
+    timepoints = traces[0].data['x_0'].x
+    trace_batch = TraceBatch(varnames,timepoints,signals)
+    r = primitive.robustness(trace_batch,0)
+    rhos = np.minimum(r,rho_paths)
+    # s = TraceBatch(varnames, timepoints, data)
+    # traces = []
+    # for i in range(len(signals)):
+    #     data = [signals[i][j] for j in range(num_dimension)]
+    #     trace = Trace(varnames, timepoints, data)
+    #     traces.append(trace)
+
+
+
+    # rhos = [0] * len(signals)
+    # if primitive_type == 1:
+    #     index = int(primitive.child.variable.split("_")[1])
+    #     threshold = params[0]
+    #     t0, t1 = int(params[1]), int(params[2])
+    #     if primitive.op == 6: # Eventually
+    #         if primitive.child.relation == 2: # <=
+    #             for i in range(len(signals)):
+    #                 rhos[i] = np.min([np.max([threshold - signals[i][index][t] for t in range(t0, t1+1)]), rho_paths[i]])
+    #         else: # >=
+    #             for i in range(len(signals)):
+    #                 rhos[i] = np.min([np.max([signals[i][index][t] - threshold for t in range(t0, t1+1)]), rho_paths[i]])
+    #     else: # Always
+    #         if primitive.child.relation == 2: # <=
+    #             for i in range(len(signals)):
+    #                 rhos[i] = np.min([np.min([threshold - signals[i][index][t] for t in range(t0, t1+1)]), rho_paths[i]])
+    #         else: # >=
+    #             for i in range(len(signals)):
+    #                 rhos[i] = np.min([np.min([signals[i][index][t] - threshold for t in range(t0, t1+1)]), rho_paths[i]])
+    return rhos
 
 
 
@@ -56,7 +81,7 @@ def pso_costFunc(position, signals, traces, labels, primitive, primitive_type, r
 
     primitive = copy.deepcopy(primitive)
     # rhos = [compute_robustness(traces[i], position, primitive, primitive_type, rho_path[i]) for i in range(len(signals))]
-    rhos = compute_robustness(signals, position, primitive, primitive_type, rho_path)
+    rhos = compute_robustness(signals, traces, position, primitive, primitive_type, rho_path)
     for i in range(len(signals)):
         if rhos[i] >= 0:
             S_true.append(i)
@@ -109,7 +134,7 @@ class Particle():
     def evaluate(self, costFunc, rho_path, D_t):
         self.err_i = costFunc(self.position, self.signals, self.traces, self.labels, self.primitive, self.primitive_type, rho_path, D_t)
 
-        if self.err_i < self.err_best_i or self.err_best_i is None:
+        if self.err_best_i is None or self.err_i < self.err_best_i:
             self.err_best_i = self.err_i
             self.pos_best_i = self.position
 
@@ -216,7 +241,7 @@ class PSO():
             for i in range(self.num_particles):
                 self.swarm[i].evaluate(self.costFunc, rho_path, D_t)
 
-                if self.swarm[i].err_best_i < self.err_best_g or self.err_best_g is None:
+                if self.err_best_g is None or self.swarm[i].err_best_i < self.err_best_g:
                     self.err_best_g = self.swarm[i].err_best_i
                     self.pos_best_g = self.swarm[i].pos_best_i
 

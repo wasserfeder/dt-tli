@@ -26,21 +26,22 @@ class DTree(object):        # Decission tree recursive structure
         self.right = right
 
 
-    def classify(self, signal):
+    def classify(self, signal,trace):
         if self.primitive_type == 1 or self.primitive_type == 2:
-            rho = compute_robustness([signal], self.params, self.primitive, self.primitive_type, [np.inf])
+            rho = compute_robustness([signal], [trace], self.params, self.primitive, self.primitive_type, [np.inf])
         else:
+            # TODO: presumably, add trace here as well
             rho = compute_combined_robustness([signal], self.params, self.primitive, self.primitive_type, [np.inf])
         if rho[0] >= 0:
             if self.left is None:
                 return 1
             else:
-                return self.left.classify(signal)
+                return self.left.classify(signal,trace)
         else:
             if self.right is None:
                 return -1
             else:
-                return self.right.classify(signal)
+                return self.right.classify(signal,trace)
 
 
     def get_primitive_type(self, primitive):
@@ -257,7 +258,7 @@ def best_prim(signals, traces, labels, rho_path, primitives, D_t, args):
         else:
             primitive = set_stl2_pars(primitive, params)
 
-        rhos = np.array(compute_robustness(signals, params, primitive, primitive_type, rho_path))
+        rhos = np.array(compute_robustness(signals, traces, params, primitive, primitive_type, rho_path))
         opt_prims.append([primitive, impurity, rhos])
 
     prim, impurity, rhos =  min(opt_prims, key=lambda x: x[1])
@@ -276,6 +277,10 @@ def best_prim(signals, traces, labels, rho_path, primitives, D_t, args):
             primitive_type = 2
         prim = reverse_primitive(prim, primitive_type)
         rhos = - rhos
+
+    # delete strings so that they print with updated information
+    prim._STLFormula__string=None
+    prim.child._STLFormula__string=None
 
     return prim, impurity, rhos
 

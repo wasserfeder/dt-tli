@@ -4,7 +4,7 @@ import itertools
 import numpy as np
 
 import sys
-sys.path.append("/home/erfan/Documents/University/Projects/Learning_Specifications/python-stl/stl")
+sys.path.append("C:\TERRAA\ManeuverGame\python_stl")
 from stl import STLFormula, Operation, RelOperation
 
 
