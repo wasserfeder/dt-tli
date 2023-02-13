@@ -18,7 +18,8 @@ def compute_robustness(signals, traces, params, primitive, primitive_type, rho_p
     num_dimension   = len(signals[0])
     varnames = ['x_{}'.format(i) for i in range(num_dimension)]
     # this assumes identical sampling rate for all signals. if not, we need to modify to include time explicity
-    timepoints = traces[0].data['x_0'].x
+    # timepoints = traces[0].data['x_0'].x
+    timepoints = [x for x in range(len(traces[0].data['x_0'].x))]
     trace_batch = TraceBatch(varnames,timepoints,signals)
     r = primitive.robustness(trace_batch,0)
     rhos = np.minimum(r,rho_paths)
