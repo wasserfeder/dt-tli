@@ -1,7 +1,7 @@
 import numpy as np
 import random
 from numpy import linalg as LA
-from stl_prim import set_stl1_pars, set_stl2_pars, set_combined_stl_pars
+from .stl_prim import set_stl1_pars, set_stl2_pars, set_combined_stl_pars
 import copy
 
 
@@ -281,14 +281,14 @@ class Combined_PSO():
                     self.err_best_g = self.swarm[i].err_best_i
                     self.pos_best_g = self.swarm[i].pos_best_i
 
-            print("error_best_g:", self.err_best_g)
-            print("pos_best_g:", self.pos_best_g)
+            # print("error_best_g:", self.err_best_g)
+            # print("pos_best_g:", self.pos_best_g)
 
             convergence = 0
             for i in range(self.num_particles):
                 distance = self.pos_best_g - self.swarm[i].position
                 convergence = convergence + LA.norm(distance)
-            print("convergence:", convergence)
+            # print("convergence:", convergence)
 
                 # if stop:
             for i in range(self.num_particles):

@@ -1,25 +1,33 @@
 import numpy as np
 import random
 from numpy import linalg as LA
-from stl_prim import set_stl1_pars, set_stl2_pars
+from .stl_prim import set_stl1_pars, set_stl2_pars
 
 import sys
-sys.path.append("C:\TERRAA\ManeuverGame\python-stl\stl")
-from stl import TraceBatch
+from pytelo.stl import TraceBatch
+
 import copy
 
 
 def compute_robustness(signals, traces, params, primitive, primitive_type, rho_paths):
     # if np.any(np.array(rho_paths)<np.inf):
-    #     print('RHO!!!')
-    
+
+
+
+     
     # ok all of these look at min between rho_paths and rho computed for primitives
     # compute stl batch robustness, then take min and convert to list?
     num_dimension   = len(signals[0])
     varnames = ['x_{}'.format(i) for i in range(num_dimension)]
     # this assumes identical sampling rate for all signals. if not, we need to modify to include time explicity
     # timepoints = traces[0].data['x_0'].x
-    timepoints = [x for x in range(len(traces[0].data['x_0'].x))]
+
+
+    # timepoints = [x for x in range(len(traces[0].data['x_0'].x))]
+    timepoints = [x for x in range(len(traces[0].data))]
+
+    # print(timepoints)
+
     trace_batch = TraceBatch(varnames,timepoints,signals)
     r = primitive.robustness(trace_batch,0)
     rhos = np.minimum(r,rho_paths)
@@ -246,14 +254,14 @@ class PSO():
                     self.err_best_g = self.swarm[i].err_best_i
                     self.pos_best_g = self.swarm[i].pos_best_i
 
-            print("error_best_g:", self.err_best_g)
-            print("pos_best_g:", self.pos_best_g)
+            # print("error_best_g:", self.err_best_g)
+            # print("pos_best_g:", self.pos_best_g)
 
             convergence = 0
             for i in range(self.num_particles):
                 distance = self.pos_best_g - self.swarm[i].position
                 convergence = convergence + LA.norm(distance)
-            print("convergence:", convergence)
+            # print("convergence:", convergence)
 
                 # if stop:
             for i in range(self.num_particles):

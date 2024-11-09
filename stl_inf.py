@@ -5,13 +5,13 @@
 
 # from stl_syntax import Formula, AND, OR, NOT, satisfies, robustness, GT
 import numpy as np
-from pso_test import run_pso_optimization
-from pso import compute_robustness
-from stl_prim import set_stl1_pars, set_stl2_pars, reverse_primitive, set_combined_stl_pars
-from stl import STLFormula, Operation
+from .pso_test import run_pso_optimization
+from .pso import compute_robustness
+from .stl_prim import set_stl1_pars, set_stl2_pars, reverse_primitive, set_combined_stl_pars
+from pytelo.stl import STLFormula, Operation
 import copy
-from combined_pso_test import run_combined_pso
-from combined_pso import compute_combined_robustness
+from .combined_pso_test import run_combined_pso
+from .combined_pso import compute_combined_robustness
 
 # ==============================================================================
 # ------------------------------------------------------------------------------
@@ -124,10 +124,10 @@ def pruned_tree(signals, traces, labels, rho_path, depth, prim, impurity, rhos, 
         return None, prunes
 
     tree = DTree(prim)
-    print('***************************************************************')
-    print("Depth:", args.depth - depth + 1)
-    print('Root Primitive:', prim)
-    print('Root impurity:', impurity)
+    # print('***************************************************************')
+    # print("Depth:", args.depth - depth + 1)
+    # print('Root Primitive:', prim)
+    # print('Root impurity:', impurity)
 
     sat_signals, unsat_signals  = [], []
     sat_traces, unsat_traces    = [], []
@@ -157,8 +157,8 @@ def pruned_tree(signals, traces, labels, rho_path, depth, prim, impurity, rhos, 
 
     if (len(sat_signals) != 0) and (depth - 1 > 0):
         left_prim, left_impurity, left_rhos = best_prim(sat_signals, sat_traces, sat_labels, sat_rho, primitives, sat_weights, args)
-        print('***************************************************************')
-        print('Left Primitive:', left_prim)
+        # print('***************************************************************')
+        # print('Left Primitive:', left_prim)
         combined_prim, combined_impurity, combined_rhos = combine_primitives(prim, left_prim, signals, traces, labels, rho_path, D_t, args, 'left')            # write the "combine_primitives" method
 
         if (combined_impurity is not None) and (combined_impurity <= impurity):
@@ -167,8 +167,8 @@ def pruned_tree(signals, traces, labels, rho_path, depth, prim, impurity, rhos, 
 
     if (len(unsat_signals) != 0) and (depth -1 > 0):
         right_prim, right_impurity, right_rhos = best_prim(unsat_signals, unsat_traces, unsat_labels, unsat_rho, primitives, unsat_weights, args)
-        print('***************************************************************')
-        print('Right Primitive:', right_prim)
+        # print('***************************************************************')
+        # print('Right Primitive:', right_prim)
         combined_prim, combined_impurity, combined_rhos = combine_primitives(prim, right_prim, signals, traces, labels, rho_path, D_t, args, 'right')
 
         if (combined_impurity is not None) and (combined_impurity <= impurity):
@@ -195,10 +195,10 @@ def normal_tree(signals, traces, labels, rho_path, depth, primitives, D_t, args)
 
     prim, impurity, rhos = best_prim(signals, traces, labels, rho_path, primitives, D_t, args)
 
-    print('***************************************************************')
-    print('Depth:', args.depth - depth + 1)
-    print('Primitive:', prim)
-    print('impurity:', impurity)
+    # print('***************************************************************')
+    # print('Depth:', args.depth - depth + 1)
+    # print('Primitive:', prim)
+    # print('impurity:', impurity)
     tree = DTree(prim)
     sat_signals, unsat_signals  = [], []
     sat_traces, unsat_traces    = [], []
@@ -244,8 +244,8 @@ def best_prim(signals, traces, labels, rho_path, primitives, D_t, args):
     opt_prims = []
     for primitive in primitives:
         primitive = copy.deepcopy(primitive)
-        print('***************************************************************')
-        print("candidate primitive:", primitive)
+        # print('***************************************************************')
+        # print("candidate primitive:", primitive)
         if primitive.child.op == 8:
             primitive_type = 1
         else:
@@ -309,8 +309,8 @@ def combine_primitives(root_prim, child_prim, signals, traces, labels, rho_path,
             combined_prim = STLFormula(Operation.EVENT, low = 0, high = 0, child = combined_pred)
         else:
             combined_prim = STLFormula(Operation.ALWAYS, low = 0, high = 0, child = combined_pred)
-        print('***************************************************************')
-        print("candidate combined primitive:", combined_prim)
+        # print('***************************************************************')
+        # print("candidate combined primitive:", combined_prim)
         prim, impurity, rhos = best_combined_prim(signals, traces, labels, rho_path, combined_prim, D_t, args)
         return prim, impurity, rhos
 
@@ -336,7 +336,7 @@ def best_combined_prim(signals, traces, labels, rho_path, combined_prim, D_t, ar
 
     prim = set_combined_stl_pars(combined_prim, primitive_type, params)
     rhos = compute_combined_robustness(signals, params, prim, primitive_type, rho_path)
-    print('***************************************************************')
-    print("best combined primitive:", prim)
-    print("combined primitive impurity:", impurity)
+    # print('***************************************************************')
+    # print("best combined primitive:", prim)
+    # print("combined primitive impurity:", impurity)
     return prim, impurity, rhos

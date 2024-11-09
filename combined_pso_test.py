@@ -3,7 +3,7 @@ import math
 import argparse
 from os import path
 import os
-from combined_pso import Combined_PSO
+from .combined_pso import Combined_PSO
 
 
 def run_combined_pso(signals, traces, labels, rho_path, primitive, primitive_type, D_t, args):

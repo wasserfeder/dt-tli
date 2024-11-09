@@ -1,11 +1,8 @@
-
-# import stl_syntax
 import itertools
 import numpy as np
-
 import sys
-sys.path.append("/home/ke26622/TERRAA/ManeuverGame/python_stl")
-from stl import STLFormula, Operation, RelOperation
+
+from pytelo.stl import STLFormula, Operation, RelOperation
 
 
 def set_stl1_pars(primitive, params):
@@ -24,6 +21,7 @@ def set_stl2_pars(primitive, params):
 
 
 def reverse_primitive(primitive, primitive_type):
+	#FIXME: code should not use numerical values of STL Ops
     if primitive_type == 1:
         if primitive.op == 6:
             primitive.op = 7
@@ -49,7 +47,9 @@ def make_stl_primitives2(signals):
     return alw_eve_gt + alw_eve_le
 
 
+
 def set_combined_stl_pars(primitive, primitive_type, params):
+	#FIXME: code should not use the numerical values for primitive type
     if primitive_type == 3 or primitive_type == 4:
         primitive.low = int(params[-2])
         primitive.high = int(params[-1])
